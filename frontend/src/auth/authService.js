@@ -1,39 +1,53 @@
+const API = "http://localhost:5000/api";
+
 export const AuthService = {
-  login: async (email, password) => {
-    try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
 
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to authenticate with server.");
-      }
-
-      localStorage.setItem("token", data.token);
-
-      return {
-        email: email, 
-        role: data.role, 
-        name: email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1)
-      };
-      
-    } catch (error) {
-      throw error;
-    }
+  register: async ({ name, email, password, domain }) => {
+    const res = await fetch(`${API}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password, domain }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Registration failed.");
+    return data;
   },
 
-  logout: () => {
-    localStorage.removeItem("token");
+  
+  login: async (email, password) => {
+    const res = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed.");
+    localStorage.setItem("token", data.token);
+    return { email: data.email, role: data.role, name: data.name };
+  },
+
+  logout: () => localStorage.removeItem("token"),
+
+  getToken: () => localStorage.getItem("token"),
+
+  apiFetch: async (path, options = {}) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed.");
+    return data;
   },
 
   hasAccess: (currentRole, requiredRole) => {
-    const weights = { member: 1, hr: 2, admin: 3 };
+    const weights = { intern: 1, hr: 2, admin: 3 };
     return weights[currentRole] >= weights[requiredRole];
-  }
+  },
 };
