@@ -5,19 +5,21 @@ import InternsPage from "./pages/InternsPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import { AuthService } from "./auth/authService";
 import { COLORS } from "./utils/theme";
+import TasksPage from "./pages/TasksPage";
+import AnnouncementsPage from "./pages/AnnouncementsPage";
 
 export default function App() {
-  const [session, setSession]       = useState(null);
+  const [session, setSession] = useState(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [sidebarHover, setSidebarHover] = useState(null);
-  const [mounted, setMounted]       = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (session?.role === "hr" || session?.role === "admin") {
+    if (session?.role) {
       AuthService.apiFetch("/notifications")
         .then(data => setNotifications(data))
         .catch(err => console.error("Failed to load notifications:", err));
@@ -55,14 +57,18 @@ export default function App() {
   if (!session) return <LoginPage onLoginSuccess={(u) => setSession(u)} />;
 
   const navItems = [
-    { id: "dashboard", icon: "⊞", label: "Dashboard", role: null, section: "Workspace" },
-    { id: "interns",   icon: "👥", label: "Intern Registry", role: "hr",    section: "Human Resources" },
-    { id: "admin-panel", icon: "⚙", label: "Admin Panel",   role: "admin",  section: "Administration" },
+    { id: "dashboard",     icon: "⊞", label: "Dashboard",       role: null,    section: "Workspace" },
+    { id: "tasks",         icon: "📋", label: "My Tasks",        role: null,    section: "Workspace" },
+    { id: "announcements", icon: "📢", label: "Announcements",   role: null,    section: "Workspace" },
+    { id: "interns",       icon: "👥", label: "Intern Registry", role: "hr",    section: "Human Resources" },
+    { id: "admin-panel",   icon: "⚙",  label: "Admin Panel",    role: "admin", section: "Administration" },
   ];
 
   const pageTitle = {
-    dashboard: "Dashboard",
-    interns: "Intern Registry",
+    dashboard:     "Dashboard",
+    tasks:         "My Tasks",
+    announcements: "Announcements",
+    interns:       "Intern Registry",
     "admin-panel": "Admin Panel",
   };
 
@@ -195,7 +201,7 @@ export default function App() {
           opacity: mounted ? 1 : 0,
           transition: "opacity 0.4s ease 0.1s",
           position: "relative",
-          zIndex: 50
+          zIndex: 50,
         }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: "-0.3px" }}>
@@ -208,12 +214,12 @@ export default function App() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ position: "relative" }}>
-              <button 
+              <button
                 onClick={() => setShowNotifs(!showNotifs)}
                 style={{
                   background: "transparent", border: "none", fontSize: 20, cursor: "pointer",
                   padding: "6px", display: "flex", alignItems: "center", justifyContent: "center",
-                  borderRadius: "50%", transition: "background 0.2s"
+                  borderRadius: "50%", transition: "background 0.2s",
                 }}
                 onMouseOver={(e) => e.currentTarget.style.background = "#F3F4F6"}
                 onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
@@ -221,8 +227,8 @@ export default function App() {
                 🔔
                 {unreadNotifs.length > 0 && (
                   <span style={{
-                    position: "absolute", top: 4, right: 6, width: 8, height: 8, 
-                    background: "#EF4444", borderRadius: "50%", border: "2px solid #fff"
+                    position: "absolute", top: 4, right: 6, width: 8, height: 8,
+                    background: "#EF4444", borderRadius: "50%", border: "2px solid #fff",
                   }} />
                 )}
               </button>
@@ -231,7 +237,7 @@ export default function App() {
                 <div style={{
                   position: "absolute", top: "110%", right: 0, width: 320,
                   background: "#fff", borderRadius: 12, border: "1px solid #E5E7EF",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.1)", overflow: "hidden", zIndex: 100
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.1)", overflow: "hidden", zIndex: 100,
                 }}>
                   <div style={{ padding: "14px 16px", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>Notifications</span>
@@ -244,7 +250,7 @@ export default function App() {
 
                   <div style={{ maxHeight: 350, overflowY: "auto" }}>
                     {userNotifs.length === 0 ? (
-                      <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "#9CA3AF" }}>No notifications for your role.</div>
+                      <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "#9CA3AF" }}>No notifications yet.</div>
                     ) : (
                       <>
                         {unreadNotifs.length > 0 && (
@@ -298,10 +304,12 @@ export default function App() {
           opacity: mounted ? 1 : 0,
           transition: "opacity 0.4s ease 0.15s",
         }}>
-          {currentPage === "dashboard" && <DashboardPage session={session} notifications={userNotifs} />}
-          {currentPage === "interns" && AuthService.hasAccess(session.role, "hr") && <InternsPage />}
-          {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
-       </div>
+          {currentPage === "dashboard"     && <DashboardPage session={session} notifications={userNotifs} onNavigate={setCurrentPage} />}
+          {currentPage === "tasks"         && <TasksPage session={session} />}
+          {currentPage === "announcements" && <AnnouncementsPage session={session} notifications={userNotifs} onMarkRead={markAsRead} onMarkAllRead={markAllAsRead} />}
+          {currentPage === "interns"       && AuthService.hasAccess(session.role, "hr")    && <InternsPage />}
+          {currentPage === "admin-panel"   && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
+        </div>
       </main>
     </div>
   );

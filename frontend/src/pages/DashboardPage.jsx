@@ -3,7 +3,7 @@ import StatCard from "../components/StatCard";
 import { COLORS, S } from "../utils/theme";
 import { AuthService } from "../auth/authService"; 
 
-export default function DashboardPage({ session }) {
+export default function DashboardPage({ session, notifications, onNavigate }) {
   const role = session?.role?.toLowerCase() || "intern";
   const userName = session?.name || "User";
 
@@ -98,27 +98,53 @@ export default function DashboardPage({ session }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
         
         {role === "intern" && (
-          <div style={S.card}>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>🚀 Intern Onboarding Flow</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {internSteps.map((step, i) => (
-                <div key={i} style={{
-                  display: "flex", alignItems: "center", gap: 14,
-                  padding: "12px 16px", borderRadius: 10,
-                  background: step.done ? "#F0FDF4" : "#F9FAFB",
-                  border: `1px solid ${step.done ? "#86EFAC" : COLORS.border}`,
-                }}>
-                  <span style={{ fontSize: 20 }}>{step.icon}</span>
-                  <span style={{ fontSize: 13, color: step.done ? "#16A34A" : "#374151", fontWeight: step.done ? 600 : 400 }}>
-                    {step.label}
-                  </span>
-                  {step.done && <span style={{ marginLeft: "auto", color: "#16A34A", fontWeight: 700 }}>✓</span>}
-                </div>
-              ))}
+          <>
+            <div style={S.card}>
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>🚀 Intern Onboarding Flow</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { icon: "📝", label: "Intern submits application", done: true },
+                  { icon: "👔", label: "HR reviews & forwards to Admin", done: false },
+                  { icon: "⚙️", label: "Admin approves & assigns batch", done: false },
+                  { icon: "✅", label: "Intern gains portal access", done: false },
+                ].map((step, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 14,
+                    padding: "12px 16px", borderRadius: 10,
+                    background: step.done ? "#F0FDF4" : "#F9FAFB",
+                    border: `1px solid ${step.done ? "#86EFAC" : "#E5E7EB"}`,
+                  }}>
+                    <span style={{ fontSize: 20 }}>{step.icon}</span>
+                    <span style={{ fontSize: 13, color: step.done ? "#16A34A" : "#374151", fontWeight: step.done ? 600 : 400 }}>
+                      {step.label}
+                    </span>
+                    {step.done && <span style={{ marginLeft: "auto", color: "#16A34A", fontWeight: 700 }}>✓</span>}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
 
+          <div style={S.card}>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>⚡ Quick Access</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { icon: "📋", label: "View My Tasks & Deadlines", page: "tasks" },
+                { icon: "📢", label: "Announcements & Notifications", page: "announcements" },
+              ].map(({ icon, label, page }) => (
+                <button key={page} onClick={() => typeof onNavigate === "function" && onNavigate(page)}
+                  style={{
+                    ...actionButtonStyle,
+                    display: "flex", alignItems: "center", gap: 10,
+                    borderLeft: "3px solid #7C3AED",
+                  }}>
+                  <span style={{ fontSize: 16 }}>{icon}</span>
+                  <span>{label}</span>
+                </button>
+             ))}
+          </div>
+      </div>
+    </>
+  )}
         {role === "hr" && (
           <>
             <div style={S.card}>
