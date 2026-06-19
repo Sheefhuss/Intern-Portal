@@ -100,9 +100,12 @@ export default function App() {
             width: 40, height: 40,
             background: "linear-gradient(135deg, #7C3AED, #A78BFA)",
             borderRadius: 11, display: "flex", alignItems: "center",
-            justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#fff",
+            justifyContent: "center",
             boxShadow: "0 4px 14px rgba(124,58,237,0.45)", flexShrink: 0,
-          }}>E</div>
+            overflow: "hidden",
+          }}>
+            <img src="/enginow.png" alt="Enginow" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: "-0.3px" }}>Enginow</div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>Intern Portal</div>

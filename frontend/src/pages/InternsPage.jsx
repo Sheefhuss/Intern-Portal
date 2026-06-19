@@ -7,6 +7,12 @@ const domainColor = {
   Design: "#F59E0B", DevOps: "#EF4444", "ML/AI": "#06B6D4",
 };
 
+const statusColors = {
+  pending:   { bg: "#FEF3C7", text: "#D97706", label: "Pending" },
+  submitted: { bg: "#DBEAFE", text: "#2563EB", label: "Submitted" },
+  reviewed:  { bg: "#D1FAE5", text: "#059669", label: "Reviewed" },
+};
+
 export default function InternsPage({ session }) {
   const role = session?.role?.toLowerCase();
   const isAdmin = role === "admin";
@@ -14,30 +20,28 @@ export default function InternsPage({ session }) {
 
   const [pending, setPending]       = useState([]);
   const [active, setActive]         = useState([]);
+  const [tasks, setTasks]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [forwarding, setForwarding] = useState(null);
-  const [tab, setTab]               = useState("pending");
+  const [tab, setTab]               = useState("active");
+  const [expandedIntern, setExpandedIntern] = useState(null);
 
-  // Batch editing state
-  const [editingBatch, setEditingBatch]   = useState(null); // intern id
-  const [batchInput, setBatchInput]       = useState("");
-  const [savingBatch, setSavingBatch]     = useState(false);
-
-  // Announcement state
-  const [annText, setAnnText]         = useState("");
-  const [annRole, setAnnRole]         = useState("all");
-  const [annPosting, setAnnPosting]   = useState(false);
-  const [annSuccess, setAnnSuccess]   = useState(false);
+  const [annText, setAnnText]       = useState("");
+  const [annRole, setAnnRole]       = useState("all");
+  const [annPosting, setAnnPosting] = useState(false);
+  const [annSuccess, setAnnSuccess] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [pend, act] = await Promise.all([
+      const [pend, act, taskData] = await Promise.all([
         AuthService.apiFetch("/auth/applications/pending"),
         AuthService.apiFetch("/auth/interns"),
+        AuthService.apiFetch("/tasks"),
       ]);
       setPending(pend);
       setActive(act);
+      setTasks(taskData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -56,21 +60,6 @@ export default function InternsPage({ session }) {
     finally { setForwarding(null); }
   };
 
-  const saveBatch = async (id) => {
-    if (!batchInput.trim()) return alert("Batch cannot be empty.");
-    setSavingBatch(true);
-    try {
-      const updated = await AuthService.apiFetch(`/auth/interns/${id}/batch`, {
-        method: "PATCH",
-        body: JSON.stringify({ batch: batchInput }),
-      });
-      setActive(prev => prev.map(u => u._id === id ? { ...u, batch: updated.user.batch } : u));
-      setEditingBatch(null);
-      setBatchInput("");
-    } catch (err) { alert(err.message); }
-    finally { setSavingBatch(false); }
-  };
-
   const sendAnnouncement = async () => {
     if (!annText.trim()) return alert("Announcement text is required.");
     setAnnPosting(true);
@@ -86,6 +75,13 @@ export default function InternsPage({ session }) {
     finally { setAnnPosting(false); }
   };
 
+  const getInternTasks = (user) => {
+    return tasks.filter(t => 
+      t.assignedTo === user._id || 
+      (t.assignedBatch === user.batch && t.assignedDomain === user.domain)
+    );
+  };
+
   const inputStyle = {
     padding: "8px 12px", borderRadius: 8, border: "1px solid #E5E7EB",
     fontSize: 13, fontFamily: "inherit", outline: "none",
@@ -96,7 +92,6 @@ export default function InternsPage({ session }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* ── Announcement Panel (HR + Admin) ── */}
       {(isAdmin || isHR) && (
         <div style={{ ...S.card, padding: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#111827" }}>
@@ -143,11 +138,10 @@ export default function InternsPage({ session }) {
         </div>
       )}
 
-      {/* ── Tabs ── */}
       <div style={{ display: "flex", gap: 8 }}>
         {[
-          ["pending", `Pending Review (${pending.length})`],
           ["active",  `Active Interns (${active.length})`],
+          ["pending", `Pending Review (${pending.length})`],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             padding: "9px 20px", border: "none", borderRadius: 8,
@@ -159,7 +153,6 @@ export default function InternsPage({ session }) {
         ))}
       </div>
 
-      {/* ── Pending Applications ── */}
       {tab === "pending" && (
         <div style={S.card}>
           <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 15 }}>📋 Pending Intern Applications</div>
@@ -219,7 +212,6 @@ export default function InternsPage({ session }) {
         </div>
       )}
 
-      {/* ── Active Interns ── */}
       {tab === "active" && (
         <div style={S.card}>
           <div style={{ fontWeight: 600, marginBottom: 16, fontSize: 15 }}>👥 Active Intern Registry</div>
@@ -231,79 +223,100 @@ export default function InternsPage({ session }) {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ color: COLORS.muted, textAlign: "left", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "8px 12px" }}>Name</th>
-                  <th style={{ padding: "8px 12px" }}>Email</th>
-                  <th style={{ padding: "8px 12px" }}>Domain</th>
-                  <th style={{ padding: "8px 12px" }}>Batch</th>
+                  <th style={{ padding: "8px 12px" }}>Name / Email</th>
+                  <th style={{ padding: "8px 12px" }}>Domain & Batch</th>
+                  <th style={{ padding: "8px 12px" }}>Joining Date</th>
+                  <th style={{ padding: "8px 12px", width: 200 }}>Overall Progress</th>
+                  <th style={{ padding: "8px 12px" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {active.map(u => (
-                  <tr key={u._id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                    <td style={{ padding: "12px" }}><strong>{u.name}</strong></td>
-                    <td style={{ padding: "12px", color: COLORS.muted }}>{u.email}</td>
-                    <td style={{ padding: "12px" }}>
-                      <span style={{
-                        background: (domainColor[u.domain] || "#6B7280") + "22",
-                        color: domainColor[u.domain] || "#6B7280",
-                        padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                      }}>{u.domain}</span>
-                    </td>
-                    <td style={{ padding: "12px" }}>
-                      {/* ── Inline Batch Edit (Admin only) ── */}
-                      {(isAdmin || isHR) && editingBatch === u._id ? (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            value={batchInput}
-                            onChange={e => setBatchInput(e.target.value)}
-                            placeholder="e.g. Batch-1"
-                            style={{ ...inputStyle, width: 110 }}
-                            autoFocus
-                          />
+                {active.map(u => {
+                  const internTasks = getInternTasks(u);
+                  const completed = internTasks.filter(t => ['submitted', 'reviewed'].includes(t.status)).length;
+                  const total = internTasks.length;
+                  const progressPercent = total === 0 ? 0 : Math.round((completed / total) * 100);
+                  const isExpanded = expandedIntern === u._id;
+
+                  return (
+                    <React.Fragment key={u._id}>
+                      <tr style={{ borderBottom: isExpanded ? "none" : `1px solid ${COLORS.border}`, background: isExpanded ? "#F9FAFB" : "#fff" }}>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ fontWeight: 600, color: "#111827" }}>{u.name}</div>
+                          <div style={{ fontSize: 11, color: COLORS.muted }}>{u.email}</div>
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{
+                              background: (domainColor[u.domain] || "#6B7280") + "22",
+                              color: domainColor[u.domain] || "#6B7280",
+                              padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                            }}>{u.domain}</span>
+                            <span style={{ fontSize: 12, color: "#4B5563", fontWeight: 600 }}>{u.batch || "No Batch"}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px", color: "#4B5563" }}>
+                          {new Date(u.appliedAt).toLocaleDateString("en-IN")}
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4, fontWeight: 600, color: "#4B5563" }}>
+                            <span>{completed} / {total} Tasks</span>
+                            <span>{progressPercent}%</span>
+                          </div>
+                          <div style={{ width: "100%", height: 6, background: "#E5E7EB", borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ height: "100%", background: "#10B981", width: `${progressPercent}%`, transition: "width 0.3s" }} />
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px" }}>
                           <button
-                            onClick={() => saveBatch(u._id)}
-                            disabled={savingBatch}
+                            onClick={() => setExpandedIntern(isExpanded ? null : u._id)}
                             style={{
-                              padding: "6px 12px", background: "#7C3AED", color: "#fff",
-                              border: "none", borderRadius: 7, fontSize: 12, fontWeight: 600,
-                              cursor: "pointer", fontFamily: "inherit",
+                              background: isExpanded ? "#E5E7EB" : "#F3F4F6", color: "#374151",
+                              border: "1px solid #D1D5DB", borderRadius: 6, padding: "6px 12px",
+                              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit"
                             }}
                           >
-                            {savingBatch ? "…" : "Save"}
+                            {isExpanded ? "Close" : "Track Submissions"}
                           </button>
-                          <button
-                            onClick={() => { setEditingBatch(null); setBatchInput(""); }}
-                            style={{
-                              padding: "6px 10px", background: "#F3F4F6", color: "#374151",
-                              border: "1px solid #E5E7EB", borderRadius: 7, fontSize: 12,
-                              cursor: "pointer", fontFamily: "inherit",
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: u.batch ? "#111827" : COLORS.muted }}>
-                            {u.batch || "—"}
-                          </span>
-                          {(isAdmin || isHR) && (
-                            <button
-                              onClick={() => { setEditingBatch(u._id); setBatchInput(u.batch || ""); }}
-                              style={{
-                                padding: "3px 8px", background: "transparent",
-                                border: "1px solid #E5E7EB", borderRadius: 6,
-                                fontSize: 11, color: "#6B7280", cursor: "pointer",
-                              }}
-                            >
-                              ✏ Edit
-                            </button>
-                          )}
-                        </div>
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr style={{ background: "#F9FAFB", borderBottom: `1px solid ${COLORS.border}` }}>
+                          <td colSpan="5" style={{ padding: "0 24px 24px 24px" }}>
+                            <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 8, padding: 16 }}>
+                              <h4 style={{ margin: "0 0 12px 0", fontSize: 13, color: "#111827" }}>Assigned Tasks & Submissions</h4>
+                              {internTasks.length === 0 ? (
+                                <div style={{ fontSize: 12, color: COLORS.muted }}>No tasks assigned to this intern yet.</div>
+                              ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  {internTasks.map(task => {
+                                    const sc = statusColors[task.status] || statusColors.pending;
+                                    const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status === "pending";
+                                    return (
+                                      <div key={task._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", border: "1px solid #F3F4F6", borderRadius: 6 }}>
+                                        <div>
+                                          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{task.title}</div>
+                                          <div style={{ fontSize: 11, color: isOverdue ? "#DC2626" : COLORS.muted, marginTop: 2 }}>
+                                            {task.deadline ? `Due: ${new Date(task.deadline).toLocaleDateString("en-IN")}` : "No deadline"}
+                                            {isOverdue && " (Overdue)"}
+                                          </div>
+                                        </div>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, background: sc.bg, color: sc.text }}>
+                                          {sc.label}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -164,7 +164,9 @@ export default function LoginPage({ onLoginSuccess }) {
       }}>
 
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ width: 52, height: 52, background: "linear-gradient(135deg,#7C3AED,#A78BFA)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff", margin: "0 auto 12px", boxShadow: "0 8px 24px rgba(124,58,237,0.35)" }}>E</div>
+          <div style={{ width: 52, height: 52, background: "linear-gradient(135deg,#7C3AED,#A78BFA)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", boxShadow: "0 8px 24px rgba(124,58,237,0.35)", overflow: "hidden" }}>
+            <img src="/enginow.png" alt="Enginow" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>Enginow Intern Portal</div>
         </div>
 
