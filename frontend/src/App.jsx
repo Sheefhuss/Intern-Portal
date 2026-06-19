@@ -58,15 +58,15 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard",     icon: "⊞", label: "Dashboard",       role: null,    section: "Workspace" },
-    { id: "tasks",         icon: "📋", label: "My Tasks",        role: null,    section: "Workspace" },
+    { id: "tasks",         icon: "📋", label: "Task Management", role: null,    section: "Workspace" },
     { id: "announcements", icon: "📢", label: "Announcements",   role: null,    section: "Workspace" },
     { id: "interns",       icon: "👥", label: "Intern Registry", role: "hr",    section: "Human Resources" },
-    { id: "admin-panel",   icon: "⚙",  label: "Admin Panel",    role: "admin", section: "Administration" },
+    { id: "admin-panel",   icon: "⚙",  label: "Admin Panel",   role: "admin", section: "Administration" },
   ];
 
   const pageTitle = {
     dashboard:     "Dashboard",
-    tasks:         "My Tasks",
+    tasks:         "Tasks",
     announcements: "Announcements",
     interns:       "Intern Registry",
     "admin-panel": "Admin Panel",
@@ -310,7 +310,7 @@ export default function App() {
           {currentPage === "dashboard"     && <DashboardPage session={session} notifications={userNotifs} onNavigate={setCurrentPage} />}
           {currentPage === "tasks"         && <TasksPage session={session} />}
           {currentPage === "announcements" && <AnnouncementsPage session={session} notifications={userNotifs} onMarkRead={markAsRead} onMarkAllRead={markAllAsRead} />}
-          {currentPage === "interns"       && AuthService.hasAccess(session.role, "hr")    && <InternsPage />}
+          {currentPage === "interns"       && AuthService.hasAccess(session.role, "hr")    && <InternsPage session={session} />}
           {currentPage === "admin-panel"   && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
         </div>
       </main>

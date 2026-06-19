@@ -9,7 +9,7 @@ const statusColors = {
 };
 
 const emptyForm = {
-  title: "", description: "", deadline: "",
+  title: "", description: "", deadline: "", duration: "",
   submissionLink: "", formLink: "", 
   assignedDomain: "", assignedBatch: "", assignedTo: "",
   assignmentType: "batch"
@@ -35,8 +35,8 @@ export default function TasksPage({ session }) {
       .finally(() => setLoading(false));
 
     if (isManager) {
-      AuthService.apiFetch("/admin/users?status=active&role=intern")
-        .then(data => setInterns(data))
+      AuthService.apiFetch("/auth/interns")
+        .then(data => setInterns(data || []))
         .catch(() => setInterns([]));
     }
   }, [isManager]);
@@ -44,7 +44,9 @@ export default function TasksPage({ session }) {
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
 
   const availableDomains = [...new Set(interns.map(i => i.domain).filter(Boolean))];
-  const availableBatches = [...new Set(interns.filter(i => i.domain === form.assignedDomain).map(i => i.batch).filter(Boolean))];
+  const availableBatches = form.assignedDomain 
+    ? [...new Set(interns.filter(i => i.domain === form.assignedDomain).map(i => i.batch).filter(Boolean))]
+    : [];
   const availableInterns = interns.filter(i => i.domain === form.assignedDomain && i.batch === form.assignedBatch);
 
   const handleDomainChange = (e) => {
@@ -161,6 +163,16 @@ export default function TasksPage({ session }) {
                 type="date"
                 value={form.deadline}
                 onChange={e => setForm({ ...form, deadline: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+            
+            <div>
+              <label style={labelStyle}>Estimated Duration</label>
+              <input
+                value={form.duration}
+                onChange={e => setForm({ ...form, duration: e.target.value })}
+                placeholder="e.g. 3 days"
                 style={inputStyle}
               />
             </div>
@@ -308,6 +320,12 @@ export default function TasksPage({ session }) {
               </div>
 
               <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap", fontSize: 13 }}>
+                {task.duration && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6B7280" }}>
+                    <span>⏳</span>
+                    <span>Est. Duration: <strong>{task.duration}</strong></span>
+                  </div>
+                )}
                 {task.deadline && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, color: overdue ? "#DC2626" : "#6B7280" }}>
                     <span>📅</span>
