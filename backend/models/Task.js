@@ -5,6 +5,7 @@ const taskSchema = new mongoose.Schema({
   description:    { type: String, default: '' },
   assignedTo:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, 
   assignedBatch:  { type: String, default: '' }, 
+  assignedDomain: { type: String, default: '' }, 
   deadline:       { type: Date },
   submissionLink: { type: String, default: '' },   
   formLink:       { type: String, default: '' },   
