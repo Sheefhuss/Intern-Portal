@@ -2,7 +2,6 @@ const API = "http://localhost:5000/api";
 
 export const AuthService = {
 
-
   register: async ({ name, email, password, domain }) => {
     const res = await fetch(`${API}/auth/register`, {
       method: "POST",
@@ -14,7 +13,6 @@ export const AuthService = {
     return data;
   },
 
-  
   login: async (email, password) => {
     const res = await fetch(`${API}/auth/login`, {
       method: "POST",
@@ -22,13 +20,51 @@ export const AuthService = {
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed.");
+    if (!res.ok) {
+      // Pass code through so UI can show resend button
+      const err = new Error(data.error || "Login failed.");
+      err.code  = data.code;
+      err.email = data.email;
+      throw err;
+    }
     localStorage.setItem("token", data.token);
     return { email: data.email, role: data.role, name: data.name };
   },
 
-  logout: () => localStorage.removeItem("token"),
+  resendVerification: async (email) => {
+    const res = await fetch(`${API}/auth/resend-verification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to resend.");
+    return data;
+  },
 
+  forgotPassword: async (email) => {
+    const res = await fetch(`${API}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed.");
+    return data;
+  },
+
+  resetPassword: async (token, password) => {
+    const res = await fetch(`${API}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Reset failed.");
+    return data;
+  },
+
+  logout: () => localStorage.removeItem("token"),
   getToken: () => localStorage.getItem("token"),
 
   apiFetch: async (path, options = {}) => {
