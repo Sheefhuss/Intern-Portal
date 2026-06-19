@@ -10,7 +10,9 @@ const statusColors = {
 
 const emptyForm = {
   title: "", description: "", deadline: "",
-  submissionLink: "", formLink: "", assignedTo: "", assignedBatch: "",
+  submissionLink: "", formLink: "", 
+  assignedDomain: "", assignedBatch: "", assignedTo: "",
+  assignmentType: "batch"
 };
 
 export default function TasksPage({ session }) {
@@ -33,16 +35,32 @@ export default function TasksPage({ session }) {
       .finally(() => setLoading(false));
 
     if (isManager) {
-      AuthService.apiFetch("/auth/interns")
+      AuthService.apiFetch("/admin/users?status=active&role=intern")
         .then(data => setInterns(data))
         .catch(() => setInterns([]));
     }
-  }, []);
+  }, [isManager]);
 
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
 
+  const availableDomains = [...new Set(interns.map(i => i.domain).filter(Boolean))];
+  const availableBatches = [...new Set(interns.filter(i => i.domain === form.assignedDomain).map(i => i.batch).filter(Boolean))];
+  const availableInterns = interns.filter(i => i.domain === form.assignedDomain && i.batch === form.assignedBatch);
+
+  const handleDomainChange = (e) => {
+    setForm({ ...form, assignedDomain: e.target.value, assignedBatch: "", assignedTo: "" });
+  };
+
+  const handleBatchChange = (e) => {
+    setForm({ ...form, assignedBatch: e.target.value, assignedTo: "" });
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim()) return alert("Title is required.");
+    if (!form.assignedDomain) return alert("Domain selection is required.");
+    if (!form.assignedBatch) return alert("Batch selection is required.");
+    if (form.assignmentType === "intern" && !form.assignedTo) return alert("Please select a specific intern.");
+    
     setPosting(true);
     try {
       const newTask = await AuthService.apiFetch("/tasks", {
@@ -123,7 +141,7 @@ export default function TasksPage({ session }) {
       </div>
 
       {isManager && showForm && (
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24, background: "#F9FAFB", border: "1px solid #E5E7EB" }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 20, color: "#111827" }}>➕ Create New Task</div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
@@ -147,28 +165,48 @@ export default function TasksPage({ session }) {
               />
             </div>
 
-            <div>
-              <label style={labelStyle}>Assign to Intern</label>
-              <select
-                value={form.assignedTo}
-                onChange={e => setForm({ ...form, assignedTo: e.target.value })}
-                style={inputStyle}
-              >
-                <option value="">— Select Intern —</option>
-                {interns.map(intern => (
-                  <option key={intern._id} value={intern._id}>{intern.name} ({intern.domain})</option>
-                ))}
-              </select>
-            </div>
+            <div style={{ padding: "16px", background: "#fff", borderRadius: 8, border: "1px solid #E5E7EB", gridColumn: "1 / -1" }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: "#374151" }}>Assignment Target</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>1. Select Domain *</label>
+                  <select value={form.assignedDomain} onChange={handleDomainChange} style={inputStyle}>
+                    <option value="">— Select Domain —</option>
+                    {availableDomains.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={labelStyle}>2. Select Batch *</label>
+                  <select value={form.assignedBatch} onChange={handleBatchChange} disabled={!form.assignedDomain} style={{ ...inputStyle, opacity: form.assignedDomain ? 1 : 0.6 }}>
+                    <option value="">— Select Batch —</option>
+                    {availableBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
 
-            <div>
-              <label style={labelStyle}>Or Assign to Batch</label>
-              <input
-                value={form.assignedBatch}
-                onChange={e => setForm({ ...form, assignedBatch: e.target.value })}
-                placeholder="e.g. Batch-2024-A"
-                style={inputStyle}
-              />
+                <div>
+                  <label style={labelStyle}>3. Assignment Type *</label>
+                  <select 
+                    value={form.assignmentType} 
+                    onChange={e => setForm({ ...form, assignmentType: e.target.value, assignedTo: "" })} 
+                    disabled={!form.assignedBatch} 
+                    style={{ ...inputStyle, opacity: form.assignedBatch ? 1 : 0.6 }}
+                  >
+                    <option value="batch">Entire Batch</option>
+                    <option value="intern">Specific Intern</option>
+                  </select>
+                </div>
+
+                {form.assignmentType === "intern" && (
+                  <div>
+                    <label style={labelStyle}>4. Select Intern *</label>
+                    <select value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })} style={inputStyle}>
+                      <option value="">— Select Intern —</option>
+                      {availableInterns.map(i => <option key={i._id} value={i._id}>{i.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -213,7 +251,7 @@ export default function TasksPage({ session }) {
               {posting ? "Creating..." : "Create Task"}
             </button>
             <button onClick={() => { setForm(emptyForm); setShowForm(false); }} style={{
-              padding: "10px 24px", background: "#F3F4F6", color: "#374151",
+              padding: "10px 24px", background: "#fff", color: "#374151",
               border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 13, fontWeight: 600,
               cursor: "pointer", fontFamily: "inherit",
             }}>
@@ -252,6 +290,17 @@ export default function TasksPage({ session }) {
                       </span>
                     )}
                   </div>
+                  
+                  {isManager && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#6B7280" }}>
+                      Assigned to: <span style={{ fontWeight: 600, color: "#4B5563" }}>
+                        {task.assignedTo 
+                          ? "Specific Intern" 
+                          : `${task.assignedDomain || "Any Domain"} - ${task.assignedBatch || "Any Batch"} (Entire Batch)`}
+                      </span>
+                    </div>
+                  )}
+
                   {task.description && (
                     <p style={{ margin: "8px 0 0", fontSize: 13, color: "#4B5563", lineHeight: 1.5 }}>{task.description}</p>
                   )}
