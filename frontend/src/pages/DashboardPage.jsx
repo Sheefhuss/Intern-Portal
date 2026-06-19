@@ -45,34 +45,33 @@ export default function DashboardPage({ session, onNavigate }) {
         title: "System Administrator",
         accentColor: "#10B981",
         stats: [
-          { label: "Total Users",      value: val("count1"), accent: "#10B981" },
-          { label: "Active Interns",   value: val("count2"), accent: "#3B82F6" },
-          { label: "Unread Alerts",    value: val("count3"), accent: "#F59E0B" },
+          { label: "Total Users", value: val("count1"), accent: "#10B981" },
+          { label: "Active Interns", value: val("count2"), accent: "#3B82F6" },
+          { label: "Unread Alerts", value: val("count3"), accent: "#F59E0B" },
         ],
       };
       case "hr": return {
         title: "Human Resources",
         accentColor: "#7C3AED",
         stats: [
-          { label: "Total Interns",   value: val("count1"),       accent: "#7C3AED" },
-          { label: "Pending Reviews", value: val("count2"),       accent: "#F59E0B" },
-          { label: "Onboarding",      value: val("count3", "%"),  accent: "#10B981" },
+          { label: "Total Interns", value: val("count1"), accent: "#7C3AED" },
+          { label: "Pending Reviews", value: val("count2"), accent: "#F59E0B" },
+          { label: "Onboarding", value: val("count3", "%"), accent: "#10B981" },
         ],
       };
       default: return {
         title: "Intern",
         accentColor: "#7C3AED",
         stats: [
-          { label: "Task Progress",    value: val("count1", "%"), accent: "#7C3AED" },
-          { label: "Pending Tasks",    value: val("count2"),      accent: "#10B981" },
-          { label: "Unread Alerts",    value: val("count3"),      accent: "#F59E0B" },
+          { label: "Task Progress", value: val("count1", "%"), accent: "#7C3AED" },
+          { label: "Pending Tasks", value: val("count2"), accent: "#10B981" },
+          { label: "Unread Alerts", value: val("count3"), accent: "#F59E0B" },
         ],
       };
     }
   };
 
   const config = getRoleConfig();
-
   const pendingApprovalsCount = dbStats?.serverHealth?.find(s => s.metric === "Pending Approvals")?.value || 0;
 
   return (
@@ -81,8 +80,7 @@ export default function DashboardPage({ session, onNavigate }) {
       <div style={{ ...S.card, background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", padding: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22, color: "#111827" }}>Welcome back, {userName}!</h2>
         <p style={{ margin: "4px 0 0", color: "#6B7280", fontSize: 14 }}>
-          Access level:{" "}
-          <strong style={{ color: config.accentColor }}>{config.title}</strong>
+          Access level: <strong style={{ color: config.accentColor }}>{config.title}</strong>
         </p>
       </div>
 
@@ -97,50 +95,48 @@ export default function DashboardPage({ session, onNavigate }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
 
         {role === "intern" && (
-          <>
-            <div style={S.card}>
-              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>🎯 Current Priorities</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <button onClick={() => nav("tasks")} style={{
-                  ...actionButtonStyle,
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  borderLeft: "3px solid #10B981",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 16 }}>📋</span>
-                    <span>View Pending Tasks</span>
-                  </div>
-                  {dbStats?.count2 > 0 && (
-                    <span style={{
-                      background: "#10B981", color: "#fff",
-                      padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
-                    }}>
-                      {dbStats.count2} Action Needed
-                    </span>
-                  )}
-                </button>
-                
-                <button onClick={() => nav("announcements")} style={{
-                  ...actionButtonStyle,
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  borderLeft: "3px solid #F59E0B",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 16 }}>📢</span>
-                    <span>Check Announcements</span>
-                  </div>
-                  {dbStats?.count3 > 0 && (
-                    <span style={{
-                      background: "#F59E0B", color: "#fff",
-                      padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
-                    }}>
-                      {dbStats.count3} Unread
-                    </span>
-                  )}
-                </button>
-              </div>
+          <div style={S.card}>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>🎯 Current Priorities</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => nav("tasks")} style={{
+                ...actionButtonStyle,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                borderLeft: "3px solid #10B981",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 16 }}>📋</span>
+                  <span>View Pending Tasks</span>
+                </div>
+                {dbStats?.count2 > 0 && (
+                  <span style={{
+                    background: "#10B981", color: "#fff",
+                    padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
+                  }}>
+                    {dbStats.count2} Action Needed
+                  </span>
+                )}
+              </button>
+              
+              <button onClick={() => nav("announcements")} style={{
+                ...actionButtonStyle,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                borderLeft: "3px solid #F59E0B",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 16 }}>📢</span>
+                  <span>Check Announcements</span>
+                </div>
+                {dbStats?.count3 > 0 && (
+                  <span style={{
+                    background: "#F59E0B", color: "#fff",
+                    padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
+                  }}>
+                    {dbStats.count3} Unread
+                  </span>
+                )}
+              </button>
             </div>
-          </>
+          </div>
         )}
 
         {role === "hr" && (
@@ -162,12 +158,8 @@ export default function DashboardPage({ session, onNavigate }) {
                     </span>
                   )}
                 </button>
-                <button onClick={() => nav("tasks")} style={actionButtonStyle}>
-                  Assign Tasks to Interns
-                </button>
-                <button onClick={() => nav("interns")} style={actionButtonStyle}>
-                  View Active Intern Registry
-                </button>
+                <button onClick={() => nav("tasks")} style={actionButtonStyle}>Assign Tasks to Interns</button>
+                <button onClick={() => nav("interns")} style={actionButtonStyle}>View Active Intern Registry</button>
               </div>
             </div>
 
@@ -212,12 +204,8 @@ export default function DashboardPage({ session, onNavigate }) {
                     </span>
                   )}
                 </button>
-                <button onClick={() => nav("tasks")} style={actionButtonStyle}>
-                  Manage Tasks
-                </button>
-                <button onClick={() => nav("interns")} style={actionButtonStyle}>
-                  View All Interns
-                </button>
+                <button onClick={() => nav("tasks")} style={actionButtonStyle}>Manage Tasks</button>
+                <button onClick={() => nav("interns")} style={actionButtonStyle}>View All Interns</button>
               </div>
             </div>
 
