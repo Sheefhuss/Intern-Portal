@@ -18,10 +18,10 @@ const actionButtonStyle = {
 };
 
 export default function DashboardPage({ session, onNavigate }) {
-  const role = session?.role?.toLowerCase() || "intern";
+  const role     = session?.role?.toLowerCase() || "intern";
   const userName = session?.name || "User";
 
-  const [dbStats, setDbStats] = useState(null);
+  const [dbStats, setDbStats]   = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,45 +45,54 @@ export default function DashboardPage({ session, onNavigate }) {
         title: "System Administrator",
         accentColor: "#10B981",
         stats: [
-          { label: "Total Users", value: val("count1"), accent: "#10B981" },
-          { label: "Active Interns", value: val("count2"), accent: "#3B82F6" },
-          { label: "Unread Alerts", value: val("count3"), accent: "#F59E0B" },
+          { label: "Total Users",      value: val("count1"), accent: "#10B981" },
+          { label: "Active Interns",   value: val("count2"), accent: "#3B82F6" },
+          { label: "Unread Alerts",    value: val("count3"), accent: "#F59E0B" },
         ],
       };
       case "hr": return {
         title: "Human Resources",
         accentColor: "#7C3AED",
         stats: [
-          { label: "Total Interns", value: val("count1"), accent: "#7C3AED" },
-          { label: "Pending Reviews", value: val("count2"), accent: "#F59E0B" },
-          { label: "Onboarding", value: val("count3", "%"), accent: "#10B981" },
+          { label: "Total Interns",   value: val("count1"),       accent: "#7C3AED" },
+          { label: "Pending Reviews", value: val("count2"),       accent: "#F59E0B" },
+          { label: "Onboarding",      value: val("count3", "%"),  accent: "#10B981" },
         ],
       };
       default: return {
         title: "Intern",
         accentColor: "#7C3AED",
         stats: [
-          { label: "Task Progress", value: val("count1", "%"), accent: "#7C3AED" },
-          { label: "Pending Tasks", value: val("count2"), accent: "#10B981" },
-          { label: "Unread Alerts", value: val("count3"), accent: "#F59E0B" },
+          { label: "My Tasks",        value: val("count1"), accent: "#7C3AED" },
+          { label: "Pending",         value: val("count2"), accent: "#F59E0B" },
+          { label: "Submitted",       value: val("count4"), accent: "#2563EB" },
+          { label: "Completed",       value: val("count3"), accent: "#10B981" },
         ],
       };
     }
   };
 
   const config = getRoleConfig();
-  const pendingApprovalsCount = dbStats?.serverHealth?.find(s => s.metric === "Pending Approvals")?.value || 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeIn 0.4s ease" }}>
 
+      {/* ── Welcome Card ── */}
       <div style={{ ...S.card, background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", padding: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22, color: "#111827" }}>Welcome back, {userName}!</h2>
         <p style={{ margin: "4px 0 0", color: "#6B7280", fontSize: 14 }}>
-          Access level: <strong style={{ color: config.accentColor }}>{config.title}</strong>
+          Access level:{" "}
+          <strong style={{ color: config.accentColor }}>{config.title}</strong>
+          {role === "intern" && dbStats?.domain && dbStats?.batch && (
+            <>
+              {" · "}
+              <span style={{ color: "#4B5563" }}>{dbStats.domain} · {dbStats.batch}</span>
+            </>
+          )}
         </p>
       </div>
 
+      {/* ── Stat Cards ── */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         {config.stats.map((stat, i) => (
           <div key={i} style={{ flex: "1 1 200px" }}>
@@ -92,53 +101,64 @@ export default function DashboardPage({ session, onNavigate }) {
         ))}
       </div>
 
+      {/* ── Role-specific panels ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
 
+        {/* ── INTERN ── */}
         {role === "intern" && (
-          <div style={S.card}>
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>🎯 Current Priorities</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => nav("tasks")} style={{
-                ...actionButtonStyle,
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                borderLeft: "3px solid #10B981",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 16 }}>📋</span>
-                  <span>View Pending Tasks</span>
-                </div>
-                {dbStats?.count2 > 0 && (
-                  <span style={{
-                    background: "#10B981", color: "#fff",
-                    padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
+          <>
+            <div style={S.card}>
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>📌 Next Deadline</div>
+              {isLoading ? (
+                <div style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</div>
+              ) : dbStats?.nextDeadline ? (
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "16px", borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A",
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#92400E" }}>{dbStats.nextDeadline.title}</div>
+                    <div style={{ fontSize: 12, color: "#B45309", marginTop: 4 }}>Due {dbStats.nextDeadline.date}</div>
+                  </div>
+                  <button onClick={() => nav("tasks")} style={{
+                    background: "#F59E0B", color: "#fff", border: "none", borderRadius: 7,
+                    padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
                   }}>
-                    {dbStats.count2} Action Needed
-                  </span>
-                )}
-              </button>
-              
-              <button onClick={() => nav("announcements")} style={{
-                ...actionButtonStyle,
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                borderLeft: "3px solid #F59E0B",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 16 }}>📢</span>
-                  <span>Check Announcements</span>
+                    View
+                  </button>
                 </div>
-                {dbStats?.count3 > 0 && (
-                  <span style={{
-                    background: "#F59E0B", color: "#fff",
-                    padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
-                  }}>
-                    {dbStats.count3} Unread
-                  </span>
-                )}
-              </button>
+              ) : (
+                <div style={{
+                  padding: "16px", borderRadius: 10, background: "#F0FDF4", border: "1px solid #86EFAC",
+                  fontSize: 13, color: "#16A34A", fontWeight: 500,
+                }}>
+                  🎉 No pending deadlines — you're all caught up.
+                </div>
+              )}
             </div>
-          </div>
+
+            <div style={S.card}>
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>⚡ Quick Access</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { icon: "📋", label: "View My Tasks & Deadlines",        page: "tasks" },
+                  { icon: "📢", label: "Announcements & Notifications",     page: "announcements" },
+                ].map(({ icon, label, page }) => (
+                  <button key={page} onClick={() => nav(page)} style={{
+                    ...actionButtonStyle,
+                    display: "flex", alignItems: "center", gap: 10,
+                    borderLeft: "3px solid #7C3AED",
+                  }}>
+                    <span style={{ fontSize: 16 }}>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
+        {/* ── HR ── */}
         {role === "hr" && (
           <>
             <div style={S.card}>
@@ -158,8 +178,12 @@ export default function DashboardPage({ session, onNavigate }) {
                     </span>
                   )}
                 </button>
-                <button onClick={() => nav("tasks")} style={actionButtonStyle}>Assign Tasks to Interns</button>
-                <button onClick={() => nav("interns")} style={actionButtonStyle}>View Active Intern Registry</button>
+                <button onClick={() => nav("tasks")} style={actionButtonStyle}>
+                  Assign Tasks to Interns
+                </button>
+                <button onClick={() => nav("interns")} style={actionButtonStyle}>
+                  View Active Intern Registry
+                </button>
               </div>
             </div>
 
@@ -185,6 +209,7 @@ export default function DashboardPage({ session, onNavigate }) {
           </>
         )}
 
+        {/* ── ADMIN ── */}
         {role === "admin" && (
           <>
             <div style={S.card}>
@@ -195,17 +220,14 @@ export default function DashboardPage({ session, onNavigate }) {
                   style={{ ...actionButtonStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}
                 >
                   <span>Review HR-Forwarded Applications</span>
-                  {pendingApprovalsCount > 0 && (
-                    <span style={{
-                      background: "#EF4444", color: "#fff",
-                      padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700,
-                    }}>
-                      {pendingApprovalsCount} Pending
-                    </span>
-                  )}
+                  {/* count of hr_reviewed interns could go here */}
                 </button>
-                <button onClick={() => nav("tasks")} style={actionButtonStyle}>Manage Tasks</button>
-                <button onClick={() => nav("interns")} style={actionButtonStyle}>View All Interns</button>
+                <button onClick={() => nav("tasks")} style={actionButtonStyle}>
+                  Manage Tasks
+                </button>
+                <button onClick={() => nav("interns")} style={actionButtonStyle}>
+                  View All Interns
+                </button>
               </div>
             </div>
 
