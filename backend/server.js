@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 require('./db');
 const User = require('./models/User');
+const Task = require('./models/Task');
+const Submission = require('./models/Submission');
 const Notification = require('./models/Notification');
 const auth = require('./middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
@@ -53,6 +55,45 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
         count2: activeInterns,
         count3: systemAlerts,
         serverHealth,
+      });
+    }
+
+    if (role === 'intern') {
+      const myTasks = await Task.find({
+        $or: [
+          { assignedTo: req.user.id },
+          { assignedTo: { $in: [null, undefined] }, assignedDomain: req.user.domain, assignedBatch: req.user.batch },
+        ],
+      }).sort({ deadline: 1 });
+
+      const mySubs = await Submission.find({
+        task: { $in: myTasks.map(t => t._id) },
+        intern: req.user.id,
+      });
+      const subByTask = {};
+      mySubs.forEach(s => { subByTask[s.task.toString()] = s; });
+
+      const withStatus = myTasks.map(t => ({
+        task: t,
+        status: subByTask[t._id.toString()]?.status || 'pending',
+      }));
+
+      const pendingCount = withStatus.filter(x => x.status === 'pending').length;
+      const submittedCount = withStatus.filter(x => ['submitted', 'hr_reviewed'].includes(x.status)).length;
+      const completedCount = withStatus.filter(x => x.status === 'reviewed').length;
+      const nextDeadlineEntry = withStatus.find(x => x.status === 'pending' && x.task.deadline);
+
+      return res.json({
+        count1: myTasks.length,
+        count2: pendingCount,
+        count3: completedCount,
+        count4: submittedCount,
+        batch: req.user.batch || 'Unassigned',
+        domain: req.user.domain || 'Unassigned',
+        nextDeadline: nextDeadlineEntry ? {
+          title: nextDeadlineEntry.task.title,
+          date: new Date(nextDeadlineEntry.task.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+        } : null,
       });
     }
 

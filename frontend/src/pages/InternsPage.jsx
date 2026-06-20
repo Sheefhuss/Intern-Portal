@@ -8,19 +8,21 @@ const domainColor = {
 };
 
 const statusColors = {
-  pending:   { bg: "#FEF3C7", text: "#D97706", label: "Pending" },
-  submitted: { bg: "#DBEAFE", text: "#2563EB", label: "Submitted" },
-  reviewed:  { bg: "#D1FAE5", text: "#059669", label: "Reviewed" },
+  pending:     { bg: "#FEF3C7", text: "#D97706", label: "Pending" },
+  submitted:   { bg: "#DBEAFE", text: "#2563EB", label: "Submitted" },
+  hr_reviewed: { bg: "#EDE9FE", text: "#7C3AED", label: "HR Reviewed" },
+  reviewed:    { bg: "#D1FAE5", text: "#059669", label: "Reviewed" },
 };
 
 export default function InternsPage({ session }) {
   const role = session?.role?.toLowerCase();
   const isAdmin = role === "admin";
   const isHR    = role === "hr";
+  const isManager = isAdmin || isHR;
 
   const [pending, setPending]       = useState([]);
   const [active, setActive]         = useState([]);
-  const [tasks, setTasks]           = useState([]);
+  const [progress, setProgress]     = useState({});
   const [loading, setLoading]       = useState(true);
   const [forwarding, setForwarding] = useState(null);
   const [tab, setTab]               = useState("active");
@@ -34,14 +36,14 @@ export default function InternsPage({ session }) {
   const load = async () => {
     setLoading(true);
     try {
-      const [pend, act, taskData] = await Promise.all([
+      const [pend, act, prog] = await Promise.all([
         AuthService.apiFetch("/auth/applications/pending"),
         AuthService.apiFetch("/auth/interns"),
-        AuthService.apiFetch("/tasks"),
+        AuthService.apiFetch("/tasks/progress/interns"),
       ]);
       setPending(pend);
       setActive(act);
-      setTasks(taskData);
+      setProgress(prog);
     } catch (err) {
       console.error(err);
     } finally {
@@ -75,12 +77,7 @@ export default function InternsPage({ session }) {
     finally { setAnnPosting(false); }
   };
 
-  const getInternTasks = (user) => {
-    return tasks.filter(t => 
-      t.assignedTo === user._id || 
-      (t.assignedBatch === user.batch && t.assignedDomain === user.domain)
-    );
-  };
+  const getInternTasks = (user) => progress[user._id] || [];
 
   const inputStyle = {
     padding: "8px 12px", borderRadius: 8, border: "1px solid #E5E7EB",
@@ -233,9 +230,10 @@ export default function InternsPage({ session }) {
               <tbody>
                 {active.map(u => {
                   const internTasks = getInternTasks(u);
-                  const completed = internTasks.filter(t => ['submitted', 'reviewed'].includes(t.status)).length;
+                  const submittedCount = internTasks.filter(t => ['submitted', 'hr_reviewed', 'reviewed'].includes(t.status)).length;
+                  const reviewedCount = internTasks.filter(t => t.status === 'reviewed').length;
                   const total = internTasks.length;
-                  const progressPercent = total === 0 ? 0 : Math.round((completed / total) * 100);
+                  const progressPercent = total === 0 ? 0 : Math.round((reviewedCount / total) * 100);
                   const isExpanded = expandedIntern === u._id;
 
                   return (
@@ -260,7 +258,7 @@ export default function InternsPage({ session }) {
                         </td>
                         <td style={{ padding: "12px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4, fontWeight: 600, color: "#4B5563" }}>
-                            <span>{completed} / {total} Tasks</span>
+                            <span>{reviewedCount} reviewed · {submittedCount} submitted / {total}</span>
                             <span>{progressPercent}%</span>
                           </div>
                           <div style={{ width: "100%", height: 6, background: "#E5E7EB", borderRadius: 4, overflow: "hidden" }}>
@@ -294,17 +292,29 @@ export default function InternsPage({ session }) {
                                     const sc = statusColors[task.status] || statusColors.pending;
                                     const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status === "pending";
                                     return (
-                                      <div key={task._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", border: "1px solid #F3F4F6", borderRadius: 6 }}>
+                                      <div key={task.taskId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", border: "1px solid #F3F4F6", borderRadius: 6 }}>
                                         <div>
                                           <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{task.title}</div>
                                           <div style={{ fontSize: 11, color: isOverdue ? "#DC2626" : COLORS.muted, marginTop: 2 }}>
                                             {task.deadline ? `Due: ${new Date(task.deadline).toLocaleDateString("en-IN")}` : "No deadline"}
                                             {isOverdue && " (Overdue)"}
                                           </div>
+                                          {task.submissionUrl && (
+                                            <a href={task.submissionUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#2563EB", fontWeight: 600 }}>
+                                              View submission ↗
+                                            </a>
+                                          )}
                                         </div>
-                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, background: sc.bg, color: sc.text }}>
-                                          {sc.label}
-                                        </span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                          {task.source === "backfill" && (
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: "#FEF3C7", color: "#92400E" }} title="This status was migrated from old data, not submitted by the intern through the portal.">
+                                              ⚠ Backfilled
+                                            </span>
+                                          )}
+                                          <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, background: sc.bg, color: sc.text }}>
+                                            {sc.label}
+                                          </span>
+                                        </div>
                                       </div>
                                     )
                                   })}
