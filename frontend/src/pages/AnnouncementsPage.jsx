@@ -20,6 +20,7 @@ export default function TasksPage({ session }) {
       .finally(() => setLoading(false));
   }, []);
 
+  
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
 
   const handleSubmit = async (taskId) => {
