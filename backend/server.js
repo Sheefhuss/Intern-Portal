@@ -18,6 +18,7 @@ app.use('/api/internships', require('./routes/internships'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/certificates', require('./routes/certificates'));
 
 app.get('/api/dashboard/stats', auth, async (req, res) => {
   try {

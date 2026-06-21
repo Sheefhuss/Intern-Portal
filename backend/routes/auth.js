@@ -140,6 +140,10 @@ router.post('/login', loginLimiter, async (req, res) => {
       });
     }
 
+    if (user.status === 'revoked') {
+      return res.status(403).json({ error: 'Your access has been revoked. Contact an administrator.' });
+    }
+
     if (user.role === 'intern' && user.status !== 'active') {
       const messages = {
         pending:     'Your application is under HR review.',
