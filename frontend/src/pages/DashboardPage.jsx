@@ -23,12 +23,22 @@ export default function DashboardPage({ session, onNavigate }) {
 
   const [dbStats, setDbStats]   = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [certificate, setCertificate] = useState(null);
+  const [certLoading, setCertLoading] = useState(true);
 
   useEffect(() => {
     AuthService.apiFetch("/dashboard/stats")
       .then(data => setDbStats(data))
       .catch(() => setDbStats({ count1: 0, count2: 0, count3: 0, milestones: [], serverHealth: [] }))
       .finally(() => setIsLoading(false));
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "intern") { setCertLoading(false); return; }
+    AuthService.apiFetch("/certificates/my")
+      .then(data => setCertificate(data))
+      .catch(() => setCertificate(null))
+      .finally(() => setCertLoading(false));
   }, [role]);
 
   const nav = (page) => typeof onNavigate === "function" && onNavigate(page);
@@ -100,6 +110,47 @@ export default function DashboardPage({ session, onNavigate }) {
           </div>
         ))}
       </div>
+
+      {/* ── Certificates ── */}
+      {role === "intern" && (
+        <div style={{
+          ...S.card, padding: 24,
+          background: certificate ? "linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)" : S.card.background,
+          border: certificate ? "1px solid #C4B5FD" : undefined,
+        }}>
+          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>🎓 Certificate</div>
+          {certLoading ? (
+            <div style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</div>
+          ) : certificate ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#5B21B6" }}>
+                  🎉 Congratulations! Your certificate has been issued.
+                </div>
+                <div style={{ fontSize: 12, color: "#6D28D9", marginTop: 4 }}>
+                  Issued {new Date(certificate.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  {" · "}ID: {certificate.certificateId}
+                </div>
+              </div>
+              <a
+                href={`/api/certificates/${certificate.certificateId}/view`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: "#7C3AED", color: "#fff", textDecoration: "none",
+                  borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+                }}
+              >
+                View Certificate
+              </a>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: "#6B7280" }}>
+              Complete and get all your assigned tasks reviewed to earn your certificate.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Role-specific panels ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>

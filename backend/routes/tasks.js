@@ -1,10 +1,41 @@
 const express = require('express');
 const router  = express.Router();
+const crypto  = require('crypto');
 const Task    = require('../models/Task');
 const User    = require('../models/User');
 const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
+const Certificate  = require('../models/Certificate');
 const auth    = require('../middleware/authMiddleware');
+
+const generateCertificateId = () => {
+  const year = new Date().getFullYear();
+  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `CERT-${year}-${random}`;
+};
+
+const maybeIssueCertificate = async (internId) => {
+  const allSubs = await Submission.find({ intern: internId });
+  if (!allSubs.length) return;
+  if (!allSubs.every(s => s.status === 'reviewed')) return;
+
+  const existing = await Certificate.findOne({ student: internId });
+  if (existing) return;
+
+  const intern = await User.findById(internId).select('domain batch');
+  if (!intern) return;
+
+  try {
+    await Certificate.create({
+      student: internId,
+      certificateId: generateCertificateId(),
+      domain: intern.domain,
+      batch: intern.batch,
+    });
+  } catch (err) {
+    if (err.code !== 11000) throw err;
+  }
+};
 
 const decorate = async (tasks) => {
   const creatorIds = [...new Set(tasks.map(t => t.createdBy?.toString()).filter(Boolean))];
@@ -171,6 +202,49 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+router.patch('/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const { title, description, deadline, submissionLink, formLink } = req.body;
+    if (title !== undefined) {
+      if (!title.trim()) return res.status(400).json({ error: 'Title cannot be empty.' });
+      task.title = title.trim();
+    }
+    if (description !== undefined) task.description = description;
+    if (deadline !== undefined) task.deadline = deadline;
+    if (submissionLink !== undefined) task.submissionLink = submissionLink;
+    if (formLink !== undefined) task.formLink = formLink;
+
+    await task.save();
+    const [decorated] = await decorate([task]);
+    res.json(decorated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    await Submission.deleteMany({ task: task._id });
+    await Task.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch('/:id/submit', auth, async (req, res) => {
   try {
     if (req.user.role !== 'intern')
@@ -239,6 +313,7 @@ router.patch('/submissions/:submissionId/review', auth, async (req, res) => {
       { new: true }
     );
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+    await maybeIssueCertificate(submission.intern);
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -263,6 +338,7 @@ router.patch('/submissions/:submissionId/reset', auth, async (req, res) => {
       { new: true }
     );
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+    await Certificate.deleteOne({ student: submission.intern });
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
