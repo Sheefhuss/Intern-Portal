@@ -1,4 +1,4 @@
-const API = "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 export const AuthService = {
 
@@ -21,7 +21,6 @@ export const AuthService = {
     });
     const data = await res.json();
     if (!res.ok) {
-      // Pass code through so UI can show resend button
       const err = new Error(data.error || "Login failed.");
       err.code  = data.code;
       err.email = data.email;
@@ -86,4 +85,6 @@ export const AuthService = {
     const weights = { intern: 1, hr: 2, admin: 3 };
     return weights[currentRole] >= weights[requiredRole];
   },
+
+  getApiBase: () => API,
 };

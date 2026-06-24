@@ -7,6 +7,7 @@ import { AuthService } from "./auth/authService";
 import { COLORS } from "./utils/theme";
 import TasksPage from "./pages/TasksPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
+import MeetingsPage from "./pages/MeetingsPage";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -60,6 +61,7 @@ export default function App() {
     { id: "dashboard",     icon: "⊞", label: "Dashboard",       role: null,    section: "Workspace" },
     { id: "tasks",         icon: "📋", label: "Task Management", role: null,    section: "Workspace" },
     { id: "announcements", icon: "📢", label: "Announcements",   role: null,    section: "Workspace" },
+    { id: "meetings",      icon: "📅", label: "Meetings",        role: null,    section: "Workspace" },
     { id: "interns",       icon: "👥", label: "Intern Registry", role: "hr",    section: "Human Resources" },
     { id: "admin-panel",   icon: "⚙",  label: "Admin Panel",   role: "admin", section: "Administration" },
   ];
@@ -68,6 +70,7 @@ export default function App() {
     dashboard:     "Dashboard",
     tasks:         "Tasks",
     announcements: "Announcements",
+    meetings:      "Meetings",
     interns:       "Intern Registry",
     "admin-panel": "Admin Panel",
   };
@@ -310,6 +313,7 @@ export default function App() {
           {currentPage === "dashboard"     && <DashboardPage session={session} notifications={userNotifs} onNavigate={setCurrentPage} />}
           {currentPage === "tasks"         && <TasksPage session={session} />}
           {currentPage === "announcements" && <AnnouncementsPage session={session} notifications={userNotifs} onMarkRead={markAsRead} onMarkAllRead={markAllAsRead} />}
+          {currentPage === "meetings"      && <MeetingsPage session={session} />}
           {currentPage === "interns"       && AuthService.hasAccess(session.role, "hr")    && <InternsPage session={session} />}
           {currentPage === "admin-panel"   && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
         </div>
