@@ -21,7 +21,7 @@ export default function DashboardPage({ session, onNavigate }) {
   const role     = session?.role?.toLowerCase() || "intern";
   const userName = session?.name || "User";
 
-  const [dbStats, setDbStats]   = useState(null);
+  const [dbStats, setDbStats]     = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [certificate, setCertificate] = useState(null);
   const [certLoading, setCertLoading] = useState(true);
@@ -49,34 +49,50 @@ export default function DashboardPage({ session, onNavigate }) {
     return suffix ? `${v}${suffix}` : v;
   };
 
+  const openCertificate = async (certificateId) => {
+    try {
+      const token = AuthService.getToken();
+      const res = await fetch(`${AuthService.getApiBase()}/certificates/${certificateId}/view`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load certificate.");
+      const html = await res.text();
+      const blob = new Blob([html], { type: "text/html" });
+      const url  = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Could not load certificate. Please try again.");
+    }
+  };
+
   const getRoleConfig = () => {
     switch (role) {
       case "admin": return {
         title: "System Administrator",
         accentColor: "#10B981",
         stats: [
-          { label: "Total Users",      value: val("count1"), accent: "#10B981" },
-          { label: "Active Interns",   value: val("count2"), accent: "#3B82F6" },
-          { label: "Unread Alerts",    value: val("count3"), accent: "#F59E0B" },
+          { label: "Total Users",    value: val("count1"), accent: "#10B981" },
+          { label: "Active Interns", value: val("count2"), accent: "#3B82F6" },
+          { label: "Unread Alerts",  value: val("count3"), accent: "#F59E0B" },
         ],
       };
       case "hr": return {
         title: "Human Resources",
         accentColor: "#7C3AED",
         stats: [
-          { label: "Total Interns",   value: val("count1"),       accent: "#7C3AED" },
-          { label: "Pending Reviews", value: val("count2"),       accent: "#F59E0B" },
-          { label: "Onboarding",      value: val("count3", "%"),  accent: "#10B981" },
+          { label: "Total Interns",   value: val("count1"),      accent: "#7C3AED" },
+          { label: "Pending Reviews", value: val("count2"),      accent: "#F59E0B" },
+          { label: "Onboarding",      value: val("count3", "%"), accent: "#10B981" },
         ],
       };
       default: return {
         title: "Intern",
         accentColor: "#7C3AED",
         stats: [
-          { label: "My Tasks",        value: val("count1"), accent: "#7C3AED" },
-          { label: "Pending",         value: val("count2"), accent: "#F59E0B" },
-          { label: "Submitted",       value: val("count4"), accent: "#2563EB" },
-          { label: "Completed",       value: val("count3"), accent: "#10B981" },
+          { label: "My Tasks",  value: val("count1"), accent: "#7C3AED" },
+          { label: "Pending",   value: val("count2"), accent: "#F59E0B" },
+          { label: "Submitted", value: val("count4"), accent: "#2563EB" },
+          { label: "Completed", value: val("count3"), accent: "#10B981" },
         ],
       };
     }
@@ -87,7 +103,6 @@ export default function DashboardPage({ session, onNavigate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeIn 0.4s ease" }}>
 
-      {/* ── Welcome Card ── */}
       <div style={{ ...S.card, background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", padding: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22, color: "#111827" }}>Welcome back, {userName}!</h2>
         <p style={{ margin: "4px 0 0", color: "#6B7280", fontSize: 14 }}>
@@ -102,7 +117,6 @@ export default function DashboardPage({ session, onNavigate }) {
         </p>
       </div>
 
-      {/* ── Stat Cards ── */}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         {config.stats.map((stat, i) => (
           <div key={i} style={{ flex: "1 1 200px" }}>
@@ -111,7 +125,6 @@ export default function DashboardPage({ session, onNavigate }) {
         ))}
       </div>
 
-      {/* ── Certificates ── */}
       {role === "intern" && (
         <div style={{
           ...S.card, padding: 24,
@@ -132,17 +145,22 @@ export default function DashboardPage({ session, onNavigate }) {
                   {" · "}ID: {certificate.certificateId}
                 </div>
               </div>
-              <a
-                href={`/api/certificates/${certificate.certificateId}/view`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => openCertificate(certificate.certificateId)}
                 style={{
-                  background: "#7C3AED", color: "#fff", textDecoration: "none",
-                  borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+                  background: "#7C3AED",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 20px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
                 }}
               >
                 View Certificate
-              </a>
+              </button>
             </div>
           ) : (
             <div style={{ fontSize: 13, color: "#6B7280" }}>
@@ -152,10 +170,8 @@ export default function DashboardPage({ session, onNavigate }) {
         </div>
       )}
 
-      {/* ── Role-specific panels ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
 
-        {/* ── INTERN ── */}
         {role === "intern" && (
           <>
             <div style={S.card}>
@@ -192,8 +208,8 @@ export default function DashboardPage({ session, onNavigate }) {
               <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>⚡ Quick Access</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { icon: "📋", label: "View My Tasks & Deadlines",        page: "tasks" },
-                  { icon: "📢", label: "Announcements & Notifications",     page: "announcements" },
+                  { icon: "📋", label: "View My Tasks & Deadlines",    page: "tasks" },
+                  { icon: "📢", label: "Announcements & Notifications", page: "announcements" },
                 ].map(({ icon, label, page }) => (
                   <button key={page} onClick={() => nav(page)} style={{
                     ...actionButtonStyle,
@@ -209,7 +225,6 @@ export default function DashboardPage({ session, onNavigate }) {
           </>
         )}
 
-        {/* ── HR ── */}
         {role === "hr" && (
           <>
             <div style={S.card}>
@@ -260,7 +275,6 @@ export default function DashboardPage({ session, onNavigate }) {
           </>
         )}
 
-        {/* ── ADMIN ── */}
         {role === "admin" && (
           <>
             <div style={S.card}>
@@ -271,7 +285,6 @@ export default function DashboardPage({ session, onNavigate }) {
                   style={{ ...actionButtonStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}
                 >
                   <span>Review HR-Forwarded Applications</span>
-                  {/* count of hr_reviewed interns could go here */}
                 </button>
                 <button onClick={() => nav("tasks")} style={actionButtonStyle}>
                   Manage Tasks

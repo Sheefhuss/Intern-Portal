@@ -1,63 +1,14 @@
 const express = require('express');
-const router  = express.Router();
-const crypto  = require('crypto');
-const Task    = require('../models/Task');
-const User    = require('../models/User');
+const router = express.Router();
+const Task = require('../models/Task');
 const Submission = require('../models/Submission');
+const Certificate = require('../models/Certificate');
 const Notification = require('../models/Notification');
-const Certificate  = require('../models/Certificate');
-const auth    = require('../middleware/authMiddleware');
-
-const generateCertificateId = () => {
-  const year = new Date().getFullYear();
-  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
-  return `CERT-${year}-${random}`;
-};
-
-const maybeIssueCertificate = async (internId) => {
-  const allSubs = await Submission.find({ intern: internId });
-  if (!allSubs.length) return;
-  if (!allSubs.every(s => s.status === 'reviewed')) return;
-
-  const existing = await Certificate.findOne({ student: internId });
-  if (existing) return;
-
-  const intern = await User.findById(internId).select('domain batch');
-  if (!intern) return;
-
-  try {
-    await Certificate.create({
-      student: internId,
-      certificateId: generateCertificateId(),
-      domain: intern.domain,
-      batch: intern.batch,
-    });
-  } catch (err) {
-    if (err.code !== 11000) throw err;
-  }
-};
-
-const decorate = async (tasks) => {
-  const creatorIds = [...new Set(tasks.map(t => t.createdBy?.toString()).filter(Boolean))];
-  const creators = await User.find({ _id: { $in: creatorIds } }).select('role');
-  const roleMap = {};
-  creators.forEach(c => { roleMap[c._id.toString()] = c.role; });
-  return tasks.map(t => ({
-    ...t.toObject(),
-    createdByRole: roleMap[t.createdBy?.toString()] || null,
-  }));
-};
-
-const isIndividual = (task) => !!task.assignedTo;
-
-const batchInterns = async (task) => {
-  if (isIndividual(task)) return [task.assignedTo];
-  const users = await User.find({
-    role: 'intern', status: 'active',
-    domain: task.assignedDomain, batch: task.assignedBatch,
-  }).select('_id');
-  return users.map(u => u._id);
-};
+const User = require('../models/User');
+const auth = require('../middleware/authMiddleware');
+const { decorate, batchInterns, isIndividual } = require('../utils/taskUtils');
+const { maybeIssueCertificate } = require('../utils/certificateUtils');
+const { sendTaskEmail } = require('../utils/sendEmail');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -109,12 +60,23 @@ router.get('/', auth, async (req, res) => {
     const withProgress = await Promise.all(decorated.map(async (t) => {
       const interns = await batchInterns(t);
       const p = progressMap[t._id.toString()] || { submitted: 0, hr_reviewed: 0, reviewed: 0, total: 0 };
+      const assigneeCount = interns.length;
+      const submittedCount = p.submitted || 0;
+      const hrReviewedCount = p.hr_reviewed || 0;
+      const reviewedCount = p.reviewed || 0;
+
+      let derivedStatus = 'pending';
+      if (assigneeCount > 0 && reviewedCount === assigneeCount) derivedStatus = 'reviewed';
+      else if (hrReviewedCount > 0) derivedStatus = 'hr_reviewed';
+      else if (submittedCount > 0) derivedStatus = 'submitted';
+
       return {
         ...t,
-        assigneeCount: interns.length,
-        submittedCount: p.submitted || 0,
-        hrReviewedCount: p.hr_reviewed || 0,
-        reviewedCount: p.reviewed || 0,
+        status: derivedStatus,
+        assigneeCount,
+        submittedCount,
+        hrReviewedCount,
+        reviewedCount,
       };
     }));
 
@@ -159,6 +121,34 @@ router.get('/:id/submissions', auth, async (req, res) => {
   }
 });
 
+
+router.get('/progress/interns', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const subs = await Submission.find({}).populate('task', 'title status assignedTo assignedDomain assignedBatch deadline createdBy');
+
+    const byIntern = {};
+    subs.forEach(s => {
+      const key = s.intern.toString();
+      if (!byIntern[key]) byIntern[key] = [];
+      byIntern[key].push({
+        taskId: s.task?._id,
+        title: s.task?.title,
+        deadline: s.task?.deadline,
+        status: s.status,
+        submissionUrl: s.submissionUrl,
+        source: s.source,
+      });
+    });
+
+    res.json(byIntern);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/', auth, async (req, res) => {
   try {
     if (!['admin', 'hr'].includes(req.user.role))
@@ -196,7 +186,154 @@ router.post('/', auth, async (req, res) => {
     }
 
     const [decorated] = await decorate([task]);
-    res.status(201).json({ ...decorated, assigneeCount: internIds.length, submittedCount: 0, hrReviewedCount: 0, reviewedCount: 0 });
+    res.status(201).json({ ...decorated, status: 'pending', assigneeCount: internIds.length, submittedCount: 0, hrReviewedCount: 0, reviewedCount: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/submit', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'intern')
+      return res.status(403).json({ error: 'Only interns can submit.' });
+
+    const { submissionUrl } = req.body;
+    if (!submissionUrl || !submissionUrl.trim())
+      return res.status(400).json({ error: 'Submission link is required.' });
+
+    const trimmedUrl = submissionUrl.trim();
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://'))
+      return res.status(400).json({ error: 'Submission link must start with http:// or https://' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const eligible = isIndividual(task)
+      ? task.assignedTo?.toString() === req.user.id
+      : task.assignedDomain === req.user.domain && task.assignedBatch === req.user.batch;
+    if (!eligible) return res.status(403).json({ error: 'This task is not assigned to you.' });
+
+    const existing = await Submission.findOne({ task: task._id, intern: req.user.id });
+    if (existing && existing.status !== 'pending')
+      return res.status(400).json({ error: 'You cannot resubmit a task that is already under review.' });
+
+    const submission = await Submission.findOneAndUpdate(
+      { task: task._id, intern: req.user.id },
+      { status: 'submitted', submissionUrl: trimmedUrl, submittedAt: new Date(), source: 'intern' },
+      { new: true, upsert: true }
+    );
+
+    res.json(submission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/withdraw', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'intern')
+      return res.status(403).json({ error: 'Only interns can withdraw submissions.' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const submission = await Submission.findOne({ task: task._id, intern: req.user.id });
+    if (!submission) return res.status(404).json({ error: 'No submission found.' });
+
+    if (submission.status !== 'submitted')
+      return res.status(400).json({ error: 'You can only withdraw a submission that has not been reviewed yet.' });
+
+    submission.status = 'pending';
+    submission.submissionUrl = '';
+    submission.submittedAt = null;
+    submission.source = 'intern';
+    await submission.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:submissionId/forward', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'hr')
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.submissionId,
+      { status: 'hr_reviewed' },
+      { new: true }
+    );
+    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+    res.json(submission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:submissionId/review', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.submissionId,
+      { status: 'reviewed', reviewedAt: new Date(), reviewedBy: req.user.id },
+      { new: true }
+    );
+    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+    await maybeIssueCertificate(submission.intern);
+    res.json(submission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:submissionId/reset', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.submissionId,
+      {
+        status: 'pending',
+        submissionUrl: '',
+        submittedAt: null,
+        reviewedAt: null,
+        reviewedBy: null,
+        source: 'intern',
+      },
+      { new: true }
+    );
+    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+
+    await Certificate.deleteOne({ student: submission.intern });
+
+    const task = await Task.findById(submission.task).select('title');
+    const intern = await User.findById(submission.intern).select('name email');
+
+    if (intern) {
+      await Notification.create({
+        userId: intern._id,
+        role: 'intern',
+        type: 'task',
+        text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.`,
+      });
+      try {
+        await sendTaskEmail({
+          to: intern.email,
+          internName: intern.name,
+          taskTitle: task?.title || 'a task',
+          type: 'reset',
+        });
+      } catch (emailErr) {
+        console.error('Reset email failed:', emailErr.message);
+      }
+    }
+
+    res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -240,133 +377,6 @@ router.delete('/:id', auth, async (req, res) => {
     await Task.findByIdAndDelete(req.params.id);
 
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch('/:id/submit', auth, async (req, res) => {
-  try {
-    if (req.user.role !== 'intern')
-      return res.status(403).json({ error: 'Only interns can submit.' });
-
-    const { submissionUrl } = req.body;
-    if (!submissionUrl || !submissionUrl.trim())
-      return res.status(400).json({ error: 'A submission link is required.' });
-
-    try {
-      new URL(submissionUrl.trim());
-    } catch {
-      return res.status(400).json({ error: 'Please provide a valid URL.' });
-    }
-
-    const task = await Task.findById(req.params.id);
-    if (!task) return res.status(404).json({ error: 'Task not found.' });
-
-    const eligible = isIndividual(task)
-      ? task.assignedTo?.toString() === req.user.id
-      : task.assignedDomain === req.user.domain && task.assignedBatch === req.user.batch;
-    if (!eligible) return res.status(403).json({ error: 'This task is not assigned to you.' });
-
-    const submission = await Submission.findOneAndUpdate(
-      { task: task._id, intern: req.user.id },
-      {
-        status: 'submitted',
-        submissionUrl: submissionUrl.trim(),
-        submittedAt: new Date(),
-        source: 'intern',
-      },
-      { new: true, upsert: true }
-    );
-
-    res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch('/submissions/:submissionId/forward', auth, async (req, res) => {
-  try {
-    if (req.user.role !== 'hr')
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const submission = await Submission.findByIdAndUpdate(
-      req.params.submissionId,
-      { status: 'hr_reviewed' },
-      { new: true }
-    );
-    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
-    res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch('/submissions/:submissionId/review', auth, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin')
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const submission = await Submission.findByIdAndUpdate(
-      req.params.submissionId,
-      { status: 'reviewed', reviewedAt: new Date(), reviewedBy: req.user.id },
-      { new: true }
-    );
-    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
-    await maybeIssueCertificate(submission.intern);
-    res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.patch('/submissions/:submissionId/reset', auth, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin')
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const submission = await Submission.findByIdAndUpdate(
-      req.params.submissionId,
-      {
-        status: 'pending',
-        submissionUrl: '',
-        submittedAt: null,
-        reviewedAt: null,
-        reviewedBy: null,
-        source: 'intern',
-      },
-      { new: true }
-    );
-    if (!submission) return res.status(404).json({ error: 'Submission not found.' });
-    await Certificate.deleteOne({ student: submission.intern });
-    res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/progress/interns', auth, async (req, res) => {
-  try {
-    if (!['admin', 'hr'].includes(req.user.role))
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const subs = await Submission.find({}).populate('task', 'title status assignedTo assignedDomain assignedBatch deadline createdBy');
-
-    const byIntern = {};
-    subs.forEach(s => {
-      const key = s.intern.toString();
-      if (!byIntern[key]) byIntern[key] = [];
-      byIntern[key].push({
-        taskId: s.task?._id,
-        title: s.task?.title,
-        deadline: s.task?.deadline,
-        status: s.status,
-        submissionUrl: s.submissionUrl,
-        source: s.source,
-      });
-    });
-
-    res.json(byIntern);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
