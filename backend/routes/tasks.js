@@ -175,7 +175,22 @@ router.post('/', auth, async (req, res) => {
       await Submission.insertMany(
         internIds.map(internId => ({ task: task._id, intern: internId, status: 'pending' })),
         { ordered: false }
-      ).catch(() => {});
+      ).catch(err => {
+        // insertMany with ordered:false still throws once at the end, bundling
+        // both "harmless" duplicate-key errors and any real ones together.
+        // Mongo attaches per-document results on err.writeErrors — filter those
+        // down to anything that ISN'T a duplicate key (code 11000) and log it.
+        const realErrors = (err.writeErrors || []).filter(e => e.code !== 11000);
+        if (realErrors.length) {
+          console.error(
+            `Submission insertMany: ${realErrors.length} real failure(s) for task ${task._id}:`,
+            realErrors.map(e => e.errmsg || e.err?.errmsg).join('; ')
+          );
+        } else if (err.code !== 11000) {
+          // Not a bulk-write error shape at all (e.g. validation/connection issue)
+          console.error(`Submission insertMany failed for task ${task._id}:`, err.message);
+        }
+      });
 
       await Notification.insertMany(internIds.map(internId => ({
         userId: internId,

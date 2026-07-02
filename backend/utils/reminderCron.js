@@ -14,7 +14,8 @@ cron.schedule('*/5 * * * *', async () => {
       scheduledAt: { $gte: oneHourFromNow, $lte: sixtyFiveMinsFromNow }
     }).populate('createdBy');
 
-    for (const meeting of upcomingMeetings) {
+    if (upcomingMeetings.length === 0) return;
+    const emailPromises = upcomingMeetings.map(async (meeting) => {
       if (meeting.createdBy?.email) {
         await sendMeetingEmail({
           to: meeting.createdBy.email,
@@ -27,9 +28,13 @@ cron.schedule('*/5 * * * *', async () => {
       }
       
       meeting.reminderSent = true;
-      await meeting.save();
-    }
+      return meeting.save();
+    });
+    await Promise.allSettled(emailPromises);
+    
+    console.log(`Successfully processed ${upcomingMeetings.length} meeting reminders.`);
+
   } catch (err) {
-    console.error(err);
+    console.error('Cron Job Error:', err);
   }
 });

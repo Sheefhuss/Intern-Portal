@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 const Submission = require('../models/Submission');
 const Certificate = require('../models/Certificate');
+const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { sendCertificateEmail } = require('./sendEmail');
 
 const generateCertificateId = () => {
   const year = new Date().getFullYear();
@@ -15,21 +17,49 @@ const maybeIssueCertificate = async (internId) => {
   if (!allSubs.every(s => s.status === 'reviewed')) return;
 
   const existing = await Certificate.findOne({ student: internId });
-  if (existing) return;
+  if (existing) return existing;
 
-  const intern = await User.findById(internId).select('domain batch');
+  const intern = await User.findById(internId).select('name email domain batch');
   if (!intern) return;
 
+  let certificate;
   try {
-    await Certificate.create({
+    certificate = await Certificate.create({
       student: internId,
       certificateId: generateCertificateId(),
       domain: intern.domain,
       batch: intern.batch,
     });
   } catch (err) {
-    if (err.code !== 11000) throw err;
+    if (err.code === 11000) {
+      return Certificate.findOne({ student: internId });
+    }
+    throw err;
   }
+
+  try {
+    await sendCertificateEmail({
+      to: intern.email,
+      internName: intern.name,
+      domain: intern.domain,
+      batch: intern.batch,
+      certificateId: certificate.certificateId,
+      issuedAt: certificate.issuedAt || certificate.createdAt,
+      verifyUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/certificates/${certificate.certificateId}/view`,
+    });
+  } catch (emailErr) {
+    console.error(emailErr.message);
+  }
+
+  await Notification.create({
+    userId: intern._id,
+    role: 'intern',
+    type: 'certificate',
+    text: `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued and emailed to you.`,
+    meta: { certificateId: certificate.certificateId },
+  });
+
+  return certificate;
 };
 
 module.exports = { generateCertificateId, maybeIssueCertificate };
