@@ -23,8 +23,6 @@ export default function DashboardPage({ session, onNavigate }) {
 
   const [dbStats, setDbStats]     = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [certificate, setCertificate] = useState(null);
-  const [certLoading, setCertLoading] = useState(true);
 
   useEffect(() => {
     AuthService.apiFetch("/dashboard/stats")
@@ -33,36 +31,12 @@ export default function DashboardPage({ session, onNavigate }) {
       .finally(() => setIsLoading(false));
   }, [role]);
 
-  useEffect(() => {
-    if (role !== "intern") { setCertLoading(false); return; }
-    AuthService.apiFetch("/certificates/my")
-      .then(data => setCertificate(data))
-      .catch(() => setCertificate(null))
-      .finally(() => setCertLoading(false));
-  }, [role]);
-
   const nav = (page) => typeof onNavigate === "function" && onNavigate(page);
 
   const val = (key, suffix = "") => {
     if (isLoading) return "…";
     const v = dbStats?.[key] ?? 0;
     return suffix ? `${v}${suffix}` : v;
-  };
-
-  const openCertificate = async (certificateId) => {
-    try {
-      const token = AuthService.getToken();
-      const res = await fetch(`${AuthService.getApiBase()}/certificates/${certificateId}/view`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to load certificate.");
-      const html = await res.text();
-      const blob = new Blob([html], { type: "text/html" });
-      const url  = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert("Could not load certificate. Please try again.");
-    }
   };
 
   const getRoleConfig = () => {
@@ -124,51 +98,6 @@ export default function DashboardPage({ session, onNavigate }) {
           </div>
         ))}
       </div>
-
-      {role === "intern" && (
-        <div style={{
-          ...S.card, padding: 24,
-          background: certificate ? "linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)" : S.card.background,
-          border: certificate ? "1px solid #C4B5FD" : undefined,
-        }}>
-          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>🎓 Certificate</div>
-          {certLoading ? (
-            <div style={{ fontSize: 13, color: "#9CA3AF" }}>Loading…</div>
-          ) : certificate ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#5B21B6" }}>
-                  🎉 Congratulations! Your certificate has been issued.
-                </div>
-                <div style={{ fontSize: 12, color: "#6D28D9", marginTop: 4 }}>
-                  Issued {new Date(certificate.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  {" · "}ID: {certificate.certificateId}
-                </div>
-              </div>
-              <button
-                onClick={() => openCertificate(certificate.certificateId)}
-                style={{
-                  background: "#7C3AED",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                View Certificate
-              </button>
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, color: "#6B7280" }}>
-              Complete and get all your assigned tasks reviewed to earn your certificate.
-            </div>
-          )}
-        </div>
-      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
 

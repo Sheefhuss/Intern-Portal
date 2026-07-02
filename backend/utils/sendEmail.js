@@ -1,77 +1,86 @@
+const fs = require('fs');
 const nodemailer = require('nodemailer');
+const path = require('path');
+const QRCode = require('qrcode');
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
   port: process.env.EMAIL_PORT || 587,
+  pool: true, 
+  maxConnections: 5,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-async function sendMeetingEmail({ to, subject, title, time, link, isReminder = false }) {
-  const formattedTime = new Date(time).toLocaleString('en-IN', {
-    dateStyle: 'long',
-    timeStyle: 'short',
+async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl }) {
+  const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+  
+  const logoPath = path.join(__dirname, '../public/enginow.png');
+  const qrBuffer = await QRCode.toBuffer(verifyUrl, {
+    width: 140, margin: 1, color: { dark: '#7C3AED', light: '#ffffff' },
   });
 
+  // FIX 3: Safely verify attachment exists before sending
+  const attachments = [
+    { filename: 'verify-qr.png', content: qrBuffer, cid: 'enginow-qr' }
+  ];
+  if (fs.existsSync(logoPath)) {
+    attachments.unshift({ filename: 'enginow.png', path: logoPath, cid: 'enginow-logo' });
+  }
+
   const mailOptions = {
     from: `"Enginow Portal" <${process.env.EMAIL_USER}>`,
     to,
-    subject,
+    subject: `🎓 Your Certificate of Completion — ${domain || 'Internship'} Program`,
     html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #111827;">
-        <h2>${isReminder ? '⏰ Meeting Reminder' : '📅 Meeting Approved!'}</h2>
-        <p>Hi there,</p>
-        <p>Your meeting <strong>"${title}"</strong> is confirmed.</p>
-        <p><strong>Scheduled Time:</strong> ${formattedTime}</p>
-        ${link ? `<p><a href="${link}" style="background: #7C3AED; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 10px;">Join Meeting</a></p>` : ''}
-        <br/>
-        <p>Best regards,<br/>Enginow Team</p>
+      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
+        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
+          <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
+          <div style="padding:36px 40px;">
+            <table style="margin-bottom:24px;"><tr>
+              ${fs.existsSync(logoPath) ? '<td><img src="cid:enginow-logo" alt="Enginow" width="40" height="40" style="border-radius:8px;"></td>' : ''}
+              <td style="padding-left:12px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#7C3AED;">
+                Enginow Internship Program
+              </td>
+            </tr></table>
+            <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
+              Certificate of Achievement
+            </p>
+            <h1 style="font-size:26px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
+              Congratulations, ${internName}! 🎉
+            </h1>
+            <p style="font-size:14px;color:#374151;line-height:1.7;">
+              You have successfully completed the <strong>${domain || 'Internship'} Program</strong>${batch ? `, Batch <strong>${batch}</strong>` : ''}
+              with all assigned tasks reviewed and approved by the Enginow team.
+            </p>
+            <table style="width:100%;margin-top:26px;padding-top:18px;border-top:1px solid #F3F0FF;">
+              <tr>
+                <td>
+                  <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;">Date of Issue</div>
+                  <div style="font-size:14px;font-weight:600;color:#1F1235;">${issued}</div>
+                </td>
+                <td>
+                  <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;">Certificate ID</div>
+                  <div style="font-size:13px;font-weight:600;color:#7C3AED;font-family:'Courier New',monospace;">${certificateId}</div>
+                </td>
+                <td style="text-align:right;">
+                  <img src="cid:enginow-qr" alt="Verify" width="70" height="70" style="border-radius:6px;border:1.5px solid #EDE9FE;">
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
+        </div>
       </div>
     `,
+    attachments,
   };
 
   return transporter.sendMail(mailOptions);
 }
 
-async function sendTaskEmail({ to, internName, taskTitle, type }) {
-  const subjects = {
-    reset: `Action Required: Resubmit "${taskTitle}"`,
-    assigned: `New Task Assigned: "${taskTitle}"`,
-  };
-
-  const bodies = {
-    reset: `
-      <div style="font-family: sans-serif; padding: 20px; color: #111827;">
-        <h2>🔄 Submission Reset</h2>
-        <p>Hi ${internName},</p>
-        <p>Your submission for the task <strong>"${taskTitle}"</strong> has been reset back to <strong>Pending</strong>.</p>
-        <p>Please log in to the portal and resubmit your work at your earliest convenience.</p>
-        <br/>
-        <p>Best regards,<br/>Enginow Team</p>
-      </div>
-    `,
-    assigned: `
-      <div style="font-family: sans-serif; padding: 20px; color: #111827;">
-        <h2>📋 New Task Assigned</h2>
-        <p>Hi ${internName},</p>
-        <p>A new task <strong>"${taskTitle}"</strong> has been assigned to you.</p>
-        <p>Please log in to the portal to view the details and complete it before the deadline.</p>
-        <br/>
-        <p>Best regards,<br/>Enginow Team</p>
-      </div>
-    `,
-  };
-
-  const mailOptions = {
-    from: `"Enginow Portal" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: subjects[type] || 'Task Update',
-    html: bodies[type] || '',
-  };
-
-  return transporter.sendMail(mailOptions);
-}
-
-module.exports = { sendMeetingEmail, sendTaskEmail };
+module.exports = { sendCertificateEmail };

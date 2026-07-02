@@ -1,9 +1,9 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host:   process.env.EMAIL_HOST,
-  port:   Number(process.env.EMAIL_PORT) || 587,
-  secure: false, 
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify((err) => {
   if (err) console.error('❌ Mailer config error:', err.message);
-  else     console.log('✅ Mailer ready');
+  else console.log('✅ Mailer ready');
 });
 
 exports.sendVerificationEmail = async ({ to, name, token }) => {
@@ -67,7 +67,6 @@ exports.sendApprovalEmail = async ({ to, name, batch }) => {
     `,
   });
 };
-
 
 exports.sendRejectionEmail = async ({ to, name }) => {
   await transporter.sendMail({
