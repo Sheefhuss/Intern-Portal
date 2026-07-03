@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import InternsPage from "./pages/InternsPage";
@@ -8,10 +9,13 @@ import { COLORS } from "./utils/theme";
 import TasksPage from "./pages/TasksPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import MeetingsPage from "./pages/MeetingsPage";
+import ChatPage from "./pages/ChatPage";
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const currentPageRef = useRef(currentPage);
+  
   const [sidebarHover, setSidebarHover] = useState(null);
   const [mounted, setMounted] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -19,7 +23,22 @@ export default function App() {
   const [notifTab, setNotifTab] = useState("all");
   const notifRef = useRef(null);
 
+  const [globalSocket, setGlobalSocket] = useState(null);
+  const [hasUnreadMessage, setHasUnreadMessage] = useState(false);
+
+  let currentUserId = session?.id || session?._id;
+  if (!currentUserId && session) {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) currentUserId = JSON.parse(atob(token.split('.')[1])).id;
+    } catch(e) {}
+  }
+
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -37,6 +56,33 @@ export default function App() {
       .then(data => setNotifications(data))
       .catch(() => {});
   }, [session]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    AuthService.apiFetch("/messages/unread-count")
+      .then(data => {
+        if (data.count > 0) setHasUnreadMessage(true);
+      })
+      .catch(() => {});
+
+    const socketInstance = io(AuthService.getApiBase().replace("/api", ""));
+    setGlobalSocket(socketInstance);
+    socketInstance.emit("join_chat", currentUserId);
+
+    const handleReceive = () => {
+      if (currentPageRef.current !== "chat") {
+        setHasUnreadMessage(true);
+      }
+    };
+
+    socketInstance.on("receive_message", handleReceive);
+
+    return () => {
+      socketInstance.off("receive_message", handleReceive);
+      socketInstance.disconnect();
+    };
+  }, [currentUserId]);
 
   const unreadNotifs = notifications.filter(n => !n.read);
   const readNotifs = notifications.filter(n => n.read);
@@ -69,6 +115,11 @@ export default function App() {
     else alert("Access Denied: You don't have permission.");
   };
 
+  const navigateToChat = () => {
+    setHasUnreadMessage(false);
+    setCurrentPage("chat");
+  };
+
   if (!session) return <LoginPage onLoginSuccess={(u) => setSession(u)} />;
 
   const navItems = [
@@ -87,6 +138,7 @@ export default function App() {
     meetings: "Meetings",
     interns: "Intern Registry",
     "admin-panel": "Admin Panel",
+    chat: "Messages"
   };
 
   return (
@@ -96,7 +148,6 @@ export default function App() {
       fontFamily: "'Inter', -apple-system, sans-serif",
       color: "#111827", overflow: "hidden",
     }}>
-
       <aside style={{
         width: 252,
         background: "linear-gradient(180deg, #0D1B2A 0%, #111827 100%)",
@@ -218,21 +269,48 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <button
+              onClick={navigateToChat}
+              style={{
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "8px", display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "50%", transition: "all 0.2s", position: "relative",
+                color: currentPage === "chat" ? "#7C3AED" : "#6B7280"
+              }}
+              onMouseOver={e => e.currentTarget.style.background = "#F3F4F6"}
+              onMouseOut={e => e.currentTarget.style.background = "transparent"}
+              title="Messages"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              </svg>
+              {hasUnreadMessage && (
+                <span style={{
+                  position: "absolute", top: 4, right: 6, width: 8, height: 8,
+                  background: "#EF4444", borderRadius: "50%", border: "2px solid #fff",
+                }} />
+              )}
+            </button>
+
             <div style={{ position: "relative" }} ref={notifRef}>
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
                 style={{
-                  background: "transparent", border: "none", fontSize: 20, cursor: "pointer",
-                  padding: "6px", display: "flex", alignItems: "center", justifyContent: "center",
-                  borderRadius: "50%", transition: "background 0.2s", position: "relative",
+                  background: "transparent", border: "none", cursor: "pointer",
+                  padding: "8px", display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: "50%", transition: "all 0.2s", position: "relative",
+                  color: showNotifs ? "#7C3AED" : "#6B7280"
                 }}
                 onMouseOver={e => e.currentTarget.style.background = "#F3F4F6"}
                 onMouseOut={e => e.currentTarget.style.background = "transparent"}
               >
-                🔔
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
                 {totalUnread > 0 && (
                   <span style={{
-                    position: "absolute", top: 4, right: 6, width: 8, height: 8,
+                    position: "absolute", top: 4, right: 8, width: 8, height: 8,
                     background: "#EF4444", borderRadius: "50%", border: "2px solid #fff",
                   }} />
                 )}
@@ -369,6 +447,8 @@ export default function App() {
           {currentPage === "meetings" && <MeetingsPage session={session} />}
           {currentPage === "interns" && AuthService.hasAccess(session.role, "hr") && <InternsPage session={session} />}
           {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
+          
+          {currentPage === "chat" && <ChatPage currentUserId={currentUserId} socket={globalSocket} />}
         </div>
       </main>
     </div>
