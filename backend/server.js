@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 require('./db');
 require('./utils/reminderCron');
@@ -9,26 +11,36 @@ const Submission = require('./models/Submission');
 const Notification = require('./models/Notification');
 const auth = require('./middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
+
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
+});
 
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/internships',  require('./routes/internships'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/internships', require('./routes/internships'));
 app.use('/api/applications', require('./routes/applications'));
-app.use('/api/tasks',        require('./routes/tasks')); 
-app.use('/api/admin',        require('./routes/admin'));
+app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/certificates', require('./routes/certificates'));
-app.use('/api/meetings',     require('./routes/meetings'));
+app.use('/api/meetings', require('./routes/meetings'));
+app.use('/api/messages', require('./routes/messages'));
 
 app.get('/api/dashboard/stats', auth, async (req, res) => {
   try {
     const role = req.user.role;
 
     if (role === 'hr') {
-      const totalInterns    = await User.countDocuments({ role: 'intern', status: 'active' });
-      const pendingReviews  = await User.countDocuments({ role: 'intern', status: 'pending', emailVerified: true });
+      const totalInterns = await User.countDocuments({ role: 'intern', status: 'active' });
+      const pendingReviews = await User.countDocuments({ role: 'intern', status: 'pending', emailVerified: true });
       const internsWithBatch = await User.countDocuments({ role: 'intern', status: 'active', batch: { $ne: '' } });
       const onboardingPercent = totalInterns > 0
         ? Math.round((internsWithBatch / totalInterns) * 100) : 0;
@@ -42,15 +54,15 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
     }
 
     if (role === 'admin') {
-      const totalUsers   = await User.countDocuments({ role: { $in: ['intern', 'hr'] } });
+      const totalUsers = await User.countDocuments({ role: { $in: ['intern', 'hr'] } });
       const activeInterns = await User.countDocuments({ role: 'intern', status: 'active' });
       const systemAlerts = await Notification.countDocuments({ type: 'system', read: false });
 
       const serverHealth = [
-        { metric: 'Active Interns',    value: activeInterns,  status: 'Good' },
+        { metric: 'Active Interns', value: activeInterns, status: 'Good' },
         { metric: 'Pending Approvals', value: await User.countDocuments({ role: 'intern', status: 'hr_reviewed' }), status: 'Warning' },
-        { metric: 'Unread Alerts',     value: systemAlerts,   status: systemAlerts > 0 ? 'Warning' : 'Good' },
-        { metric: 'DB Status',         value: 'Connected',    status: 'Good' },
+        { metric: 'Unread Alerts', value: systemAlerts, status: systemAlerts > 0 ? 'Warning' : 'Good' },
+        { metric: 'DB Status', value: 'Connected', status: 'Good' },
       ];
 
       return res.json({ count1: totalUsers, count2: activeInterns, count3: systemAlerts, serverHealth });
@@ -76,7 +88,7 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
         status: subByTask[t._id.toString()]?.status || 'pending',
       }));
 
-      const pendingCount   = withStatus.filter(x => x.status === 'pending').length;
+      const pendingCount = withStatus.filter(x => x.status === 'pending').length;
       const submittedCount = withStatus.filter(x => ['submitted', 'hr_reviewed'].includes(x.status)).length;
       const completedCount = withStatus.filter(x => x.status === 'reviewed').length;
       const nextDeadlineEntry = withStatus.find(x => x.status === 'pending' && x.task.deadline);
@@ -86,11 +98,11 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
         count2: pendingCount,
         count3: completedCount,
         count4: submittedCount,
-        batch:  req.user.batch  || 'Unassigned',
+        batch: req.user.batch || 'Unassigned',
         domain: req.user.domain || 'Unassigned',
         nextDeadline: nextDeadlineEntry ? {
           title: nextDeadlineEntry.task.title,
-          date:  new Date(nextDeadlineEntry.task.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+          date: new Date(nextDeadlineEntry.task.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
         } : null,
       });
     }
@@ -98,7 +110,6 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
     return res.json({ count1: 0, count2: 0, count3: 0 });
 
   } catch (error) {
-    console.error('Dashboard stats error:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
@@ -121,7 +132,7 @@ app.get('/api/notifications', async (req, res) => {
 
     const notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(30);
     res.json(notifs.map(n => ({
-      id:   n._id,
+      id: n._id,
       role: n.role,
       type: n.type,
       text: n.text,
@@ -174,4 +185,6 @@ app.post('/api/announcements', auth, async (req, res) => {
 
 app.get('/', (req, res) => res.send('Intern Portal API running'));
 
-app.listen(5000, () => console.log('Server running on port 5000'));
+require('./utils/socketManager')(io);
+
+server.listen(5000, () => console.log('Server running on port 5000'));
