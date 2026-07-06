@@ -37,15 +37,24 @@ router.get('/users', auth, async (req, res) => {
     } else if (req.user.role === 'admin') {
       query.role = { $in: ['hr', 'admin'] };
     }
+
     const users = await User.find(query).select('name role domain batch _id').lean();
+    
     const unreadMessages = await Message.find({ receiver: req.user.id, read: false }).select('sender').lean();
     const unreadSenders = new Set(unreadMessages.map(m => String(m.sender)));
+
+    const supportContact = {
+      _id: 'SUPPORT_TEAM_ID',
+      name: 'Enginow Support',
+      role: 'Support'
+    };
+
     const usersWithUnread = users.map(user => ({
       ...user,
       hasUnread: unreadSenders.has(String(user._id))
     }));
 
-    res.json(usersWithUnread);
+    res.json([supportContact, ...usersWithUnread]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -33,6 +33,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/certificates', require('./routes/certificates'));
 app.use('/api/meetings', require('./routes/meetings'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/profile', require('./routes/profile'));
 
 app.get('/api/dashboard/stats', auth, async (req, res) => {
   try {
