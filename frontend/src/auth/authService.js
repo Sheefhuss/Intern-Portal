@@ -1,5 +1,7 @@
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+const SESSION_KEY = "session";
+
 export const AuthService = {
 
   register: async ({ name, email, password, domain }) => {
@@ -27,7 +29,9 @@ export const AuthService = {
       throw err;
     }
     localStorage.setItem("token", data.token);
-    return { email: data.email, role: data.role, name: data.name };
+    const session = { email: data.email, role: data.role, name: data.name };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    return session;
   },
 
   resendVerification: async (email) => {
@@ -63,8 +67,35 @@ export const AuthService = {
     return data;
   },
 
-  logout: () => localStorage.removeItem("token"),
+  logout: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem(SESSION_KEY);
+  },
+
   getToken: () => localStorage.getItem("token"),
+
+  getCurrentUser: async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+
+    try {
+      const res = await fetch(`${API}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        localStorage.removeItem("token");
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      const data = await res.json();
+      const session = { email: data.email, role: data.role, name: data.name, domain: data.domain, batch: data.batch };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      return session;
+    } catch {
+      const cached = localStorage.getItem(SESSION_KEY);
+      return cached ? JSON.parse(cached) : null;
+    }
+  },
 
   apiFetch: async (path, options = {}) => {
     const token = localStorage.getItem("token");

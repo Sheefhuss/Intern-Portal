@@ -13,11 +13,14 @@ import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
 import SupportPage from "./pages/SupportPage";
 
+const NOTIF_POLL_MS = 20000;
+
 export default function App() {
   const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const currentPageRef = useRef(currentPage);
-  
+
   const [sidebarHover, setSidebarHover] = useState(null);
   const [mounted, setMounted] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -39,6 +42,17 @@ export default function App() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    AuthService.getCurrentUser().then((user) => {
+      if (!cancelled) {
+        setSession(user);
+        setSessionChecked(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
 
@@ -54,9 +68,16 @@ export default function App() {
 
   useEffect(() => {
     if (!session?.role) return;
-    AuthService.apiFetch("/notifications")
-      .then(data => setNotifications(data))
-      .catch(() => {});
+
+    const fetchNotifs = () => {
+      AuthService.apiFetch("/notifications")
+        .then(data => setNotifications(data))
+        .catch(() => {});
+    };
+
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, NOTIF_POLL_MS);
+    return () => clearInterval(interval);
   }, [session]);
 
   useEffect(() => {
@@ -121,6 +142,24 @@ export default function App() {
     setHasUnreadMessage(false);
     setCurrentPage("chat");
   };
+
+  const handleLogout = () => {
+    AuthService.logout();
+    if (globalSocket) globalSocket.disconnect();
+    setSession(null);
+  };
+
+  if (!sessionChecked) {
+    return (
+      <div style={{
+        height: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#F8F9FC", fontFamily: "'Inter', -apple-system, sans-serif", color: "#9CA3AF",
+        fontSize: 13,
+      }}>
+        Loading…
+      </div>
+    );
+  }
 
   if (!session) return <LoginPage onLoginSuccess={(u) => setSession(u)} />;
 
@@ -243,7 +282,7 @@ export default function App() {
             </div>
           </div>
           <button
-            onClick={() => setSession(null)}
+            onClick={handleLogout}
             style={{
               background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 6, padding: "5px 10px", color: "rgba(255,255,255,0.5)",

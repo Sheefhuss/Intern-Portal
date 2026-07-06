@@ -28,6 +28,27 @@ const passwordStrong = (pw) => {
   return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.<>?]).{8,}$/.test(pw);
 };
 
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    if (user.status === 'revoked') {
+      return res.status(403).json({ error: 'Your access has been revoked. Contact an administrator.' });
+    }
+
+    res.json({
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      domain: user.domain,
+      batch: user.batch,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { name, email, password, domain } = req.body;
