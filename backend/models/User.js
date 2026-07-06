@@ -19,6 +19,12 @@ const userSchema = new mongoose.Schema({
 
   resetPasswordToken:   { type: String, default: null },
   resetPasswordExpires: { type: Date,   default: null },
+  linkedIn: { type: String, default: '' },
+  mobile: { type: String, default: '' },
+  isMobileVerified: { type: Boolean, default: false },
+  photoBase64: { type: String, default: '' },
+  otp: { type: String, default: null },
+  otpExpires: { type: Date, default: null },
 });
 
 module.exports = mongoose.model('User', userSchema);

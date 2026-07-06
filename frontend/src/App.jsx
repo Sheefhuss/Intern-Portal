@@ -10,6 +10,8 @@ import TasksPage from "./pages/TasksPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import MeetingsPage from "./pages/MeetingsPage";
 import ChatPage from "./pages/ChatPage";
+import ProfilePage from "./pages/ProfilePage";
+import SupportPage from "./pages/SupportPage";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -127,8 +129,10 @@ export default function App() {
     { id: "tasks", icon: "📋", label: "Task Management", role: null, section: "Workspace" },
     { id: "announcements", icon: "📢", label: "Announcements", role: null, section: "Workspace" },
     { id: "meetings", icon: "📅", label: "Meetings", role: null, section: "Workspace" },
+    { id: "profile", icon: "👤", label: "My Profile", role: null, section: "Settings" },
     { id: "interns", icon: "👥", label: "Intern Registry", role: "hr", section: "Human Resources" },
     { id: "admin-panel", icon: "⚙", label: "Admin Panel", role: "admin", section: "Administration" },
+    { id: "support", icon: "🎧", label: "Contact Support", role: null, section: "Help" },
   ];
 
   const pageTitle = {
@@ -447,8 +451,9 @@ export default function App() {
           {currentPage === "meetings" && <MeetingsPage session={session} />}
           {currentPage === "interns" && AuthService.hasAccess(session.role, "hr") && <InternsPage session={session} />}
           {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
-          
+          {currentPage === "profile" && <ProfilePage session={session} />}
           {currentPage === "chat" && <ChatPage currentUserId={currentUserId} socket={globalSocket} />}
+          {currentPage === "support" && <SupportPage session={session} />}
         </div>
       </main>
     </div>
