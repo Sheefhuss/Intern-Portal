@@ -5,7 +5,7 @@ const QRCode = require('qrcode');
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: process.env.EMAIL_PORT || 587,
+  port: Number(process.env.EMAIL_PORT) || 587,
   pool: true, 
   maxConnections: 5,
   auth: {
@@ -83,4 +83,42 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
   return transporter.sendMail(mailOptions);
 }
 
-module.exports = { sendCertificateEmail };
+async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) {
+  const formattedTime = time
+    ? new Date(time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
+
+  const mailOptions = {
+    from: `"Enginow Portal" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    html: `
+      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
+        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
+          <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
+          <div style="padding:36px 40px;">
+            <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
+              ${isReminder ? 'Meeting Reminder' : 'Meeting Approved'}
+            </p>
+            <h1 style="font-size:22px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
+              ${isReminder ? `⏰ "${title}" starts soon` : `✅ "${title}" was approved`}
+            </h1>
+            ${formattedTime ? `
+            <p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 24px;">
+              <strong>When:</strong> ${formattedTime}
+            </p>` : ''}
+            ${link ? `
+            <a href="${link}" style="display:block;text-align:center;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:#fff;padding:14px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
+              Join Meeting →
+            </a>` : ''}
+          </div>
+          <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
+        </div>
+      </div>
+    `,
+  };
+
+  return transporter.sendMail(mailOptions);
+}
+
+module.exports = { sendCertificateEmail, sendMeetingEmail };
