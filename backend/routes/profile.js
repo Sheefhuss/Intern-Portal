@@ -3,17 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-
-// Use the same transporter configuration you have in your other files!
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // or whichever service you are using
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
+const { sendBrevoEmail } = require('../utils/brevoMailer');
 router.get('/', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
