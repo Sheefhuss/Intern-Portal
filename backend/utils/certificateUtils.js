@@ -43,6 +43,7 @@ const maybeIssueCertificate = async (internId) => {
 
   if (!certificate) return;
 
+  let emailSucceeded = false;
   try {
     await sendCertificateEmail({
       to: intern.email,
@@ -55,6 +56,7 @@ const maybeIssueCertificate = async (internId) => {
     });
     certificate.emailSent = true;
     await certificate.save();
+    emailSucceeded = true;
   } catch (emailErr) {
     console.error('Certificate email failed for', intern.email, ':', emailErr.message);
   }
@@ -63,7 +65,9 @@ const maybeIssueCertificate = async (internId) => {
     userId: intern._id,
     role: 'intern',
     type: 'certificate',
-    text: `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued and emailed to you.`,
+    text: emailSucceeded
+      ? `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued and emailed to you.`
+      : `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued. We're having trouble emailing it — you can view it in your portal.`,
     meta: { certificateId: certificate.certificateId },
   });
 

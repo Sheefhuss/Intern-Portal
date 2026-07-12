@@ -176,10 +176,6 @@ router.post('/', auth, async (req, res) => {
         internIds.map(internId => ({ task: task._id, intern: internId, status: 'pending' })),
         { ordered: false }
       ).catch(err => {
-        // insertMany with ordered:false still throws once at the end, bundling
-        // both "harmless" duplicate-key errors and any real ones together.
-        // Mongo attaches per-document results on err.writeErrors — filter those
-        // down to anything that ISN'T a duplicate key (code 11000) and log it.
         const realErrors = (err.writeErrors || []).filter(e => e.code !== 11000);
         if (realErrors.length) {
           console.error(
@@ -187,7 +183,6 @@ router.post('/', auth, async (req, res) => {
             realErrors.map(e => e.errmsg || e.err?.errmsg).join('; ')
           );
         } else if (err.code !== 11000) {
-          // Not a bulk-write error shape at all (e.g. validation/connection issue)
           console.error(`Submission insertMany failed for task ${task._id}:`, err.message);
         }
       });
@@ -202,6 +197,20 @@ router.post('/', auth, async (req, res) => {
 
     const [decorated] = await decorate([task]);
     res.status(201).json({ ...decorated, status: 'pending', assigneeCount: internIds.length, submittedCount: 0, hrReviewedCount: 0, reviewedCount: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/certificates/:internId/resend', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const certificate = await maybeIssueCertificate(req.params.internId);
+    if (!certificate) return res.status(400).json({ error: 'Certificate not eligible or not found.' });
+
+    res.json({ success: true, certificate });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
