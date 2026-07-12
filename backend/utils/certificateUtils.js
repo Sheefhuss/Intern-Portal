@@ -17,25 +17,31 @@ const maybeIssueCertificate = async (internId) => {
   if (!allSubs.every(s => s.status === 'reviewed')) return;
 
   const existing = await Certificate.findOne({ student: internId });
-  if (existing) return existing;
+  if (existing && existing.emailSent) return existing;
 
   const intern = await User.findById(internId).select('name email domain batch');
   if (!intern) return;
 
-  let certificate;
-  try {
-    certificate = await Certificate.create({
-      student: internId,
-      certificateId: generateCertificateId(),
-      domain: intern.domain,
-      batch: intern.batch,
-    });
-  } catch (err) {
-    if (err.code === 11000) {
-      return Certificate.findOne({ student: internId });
+  let certificate = existing;
+  if (!certificate) {
+    try {
+      certificate = await Certificate.create({
+        student: internId,
+        certificateId: generateCertificateId(),
+        domain: intern.domain,
+        batch: intern.batch,
+        emailSent: false,
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        certificate = await Certificate.findOne({ student: internId });
+      } else {
+        throw err;
+      }
     }
-    throw err;
   }
+
+  if (!certificate) return;
 
   try {
     await sendCertificateEmail({
@@ -47,8 +53,10 @@ const maybeIssueCertificate = async (internId) => {
       issuedAt: certificate.issuedAt || certificate.createdAt,
       verifyUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/certificates/${certificate.certificateId}/view`,
     });
+    certificate.emailSent = true;
+    await certificate.save();
   } catch (emailErr) {
-    console.error(emailErr.message);
+    console.error('Certificate email failed for', intern.email, ':', emailErr.message);
   }
 
   await Notification.create({

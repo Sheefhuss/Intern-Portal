@@ -7,7 +7,8 @@ const certificateSchema = new mongoose.Schema({
   domain: { type: String, default: '' },
   batch: { type: String, default: '' },
   pdfUrl: String,
-  issuedAt: { type: Date, default: Date.now }
+  issuedAt: { type: Date, default: Date.now },
+  emailSent: { type: Boolean, default: false }
 });
 
 certificateSchema.index({ student: 1 }, { unique: true });
