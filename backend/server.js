@@ -1,5 +1,3 @@
-require('net').setDefaultAutoSelectFamily(false);
-require('dns').setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
