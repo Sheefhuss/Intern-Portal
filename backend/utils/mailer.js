@@ -1,29 +1,11 @@
-const nodemailer = require('nodemailer');
-
-const port = Number(process.env.EMAIL_PORT) || 587;
-
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port,
-  secure: port === 465,
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
-
-console.log('Mailer target:', process.env.EMAIL_HOST, ':', port, '| secure:', port === 465);
-console.log('EMAIL_HOST set:', !!process.env.EMAIL_HOST, '| EMAIL_USER set:', !!process.env.EMAIL_USER);
-transporter.verify((err) => {
-  if (err) console.error('❌ Mailer config error:', err.message);
-  else console.log('✅ Mailer ready');
-});
+const { sendBrevoEmail } = require('./brevoMailer');
 
 exports.sendVerificationEmail = async ({ to, name, token }) => {
   const link = `${process.env.BACKEND_URL}/api/auth/verify-email?token=${token}`;
 
-  await transporter.sendMail({
-    from: `"Enginow Intern Portal" <${process.env.EMAIL_USER}>`,
+  await sendBrevoEmail({
     to,
+    toName: name,
     subject: 'Verify your email — Enginow',
     html: `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
@@ -46,9 +28,9 @@ exports.sendVerificationEmail = async ({ to, name, token }) => {
 };
 
 exports.sendApprovalEmail = async ({ to, name, batch }) => {
-  await transporter.sendMail({
-    from: `"Enginow Intern Portal" <${process.env.EMAIL_USER}>`,
+  await sendBrevoEmail({
     to,
+    toName: name,
     subject: '🎉 Your internship application is approved — Enginow',
     html: `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
@@ -72,9 +54,9 @@ exports.sendApprovalEmail = async ({ to, name, batch }) => {
 };
 
 exports.sendRejectionEmail = async ({ to, name }) => {
-  await transporter.sendMail({
-    from: `"Enginow Intern Portal" <${process.env.EMAIL_USER}>`,
+  await sendBrevoEmail({
     to,
+    toName: name,
     subject: 'Update on your internship application — Enginow',
     html: `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
@@ -93,9 +75,9 @@ exports.sendRejectionEmail = async ({ to, name }) => {
 exports.sendPasswordResetEmail = async ({ to, name, token }) => {
   const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-  await transporter.sendMail({
-    from: `"Enginow Intern Portal" <${process.env.EMAIL_USER}>`,
+  await sendBrevoEmail({
     to,
+    toName: name,
     subject: 'Reset your password — Enginow',
     html: `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
