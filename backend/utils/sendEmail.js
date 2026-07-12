@@ -1,48 +1,30 @@
 const fs = require('fs');
-const nodemailer = require('nodemailer');
 const path = require('path');
 const QRCode = require('qrcode');
-
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.EMAIL_PORT) || 587,
-  pool: true, 
-  maxConnections: 5,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const { sendBrevoEmail } = require('./brevoMailer');
 
 async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl }) {
   const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
-  
   const logoPath = path.join(__dirname, '../public/enginow.png');
+  const hasLogo = fs.existsSync(logoPath);
+  const logoDataUri = hasLogo
+    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
+    : null;
+
   const qrBuffer = await QRCode.toBuffer(verifyUrl, {
     width: 140, margin: 1, color: { dark: '#7C3AED', light: '#ffffff' },
   });
+  const qrDataUri = `data:image/png;base64,${qrBuffer.toString('base64')}`;
 
-  // FIX 3: Safely verify attachment exists before sending
-  const attachments = [
-    { filename: 'verify-qr.png', content: qrBuffer, cid: 'enginow-qr' }
-  ];
-  if (fs.existsSync(logoPath)) {
-    attachments.unshift({ filename: 'enginow.png', path: logoPath, cid: 'enginow-logo' });
-  }
-
-  const mailOptions = {
-    from: `"Enginow Portal" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: `🎓 Your Certificate of Completion — ${domain || 'Internship'} Program`,
-    html: `
+  const html = `
       <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
         <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
           <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
           <div style="padding:36px 40px;">
             <table style="margin-bottom:24px;"><tr>
-              ${fs.existsSync(logoPath) ? '<td><img src="cid:enginow-logo" alt="Enginow" width="40" height="40" style="border-radius:8px;"></td>' : ''}
+              ${hasLogo ? `<td><img src="${logoDataUri}" alt="Enginow" width="40" height="40" style="border-radius:8px;"></td>` : ''}
               <td style="padding-left:12px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#7C3AED;">
                 Enginow Internship Program
               </td>
@@ -68,7 +50,7 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
                   <div style="font-size:13px;font-weight:600;color:#7C3AED;font-family:'Courier New',monospace;">${certificateId}</div>
                 </td>
                 <td style="text-align:right;">
-                  <img src="cid:enginow-qr" alt="Verify" width="70" height="70" style="border-radius:6px;border:1.5px solid #EDE9FE;">
+                  <img src="${qrDataUri}" alt="Verify" width="70" height="70" style="border-radius:6px;border:1.5px solid #EDE9FE;">
                 </td>
               </tr>
             </table>
@@ -76,11 +58,14 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
           <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
         </div>
       </div>
-    `,
-    attachments,
-  };
+    `;
 
-  return transporter.sendMail(mailOptions);
+  return sendBrevoEmail({
+    to,
+    toName: internName,
+    subject: `🎓 Your Certificate of Completion — ${domain || 'Internship'} Program`,
+    html,
+  });
 }
 
 async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) {
@@ -88,11 +73,7 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) 
     ? new Date(time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
     : '';
 
-  const mailOptions = {
-    from: `"Enginow Portal" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html: `
+  const html = `
       <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
         <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
           <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
@@ -115,10 +96,9 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) 
           <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
         </div>
       </div>
-    `,
-  };
+    `;
 
-  return transporter.sendMail(mailOptions);
+  return sendBrevoEmail({ to, subject, html });
 }
 
 module.exports = { sendCertificateEmail, sendMeetingEmail };
