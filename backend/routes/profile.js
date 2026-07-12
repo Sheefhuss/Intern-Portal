@@ -43,17 +43,15 @@ router.post('/send-otp', auth, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user.mobile) return res.status(400).json({ error: "No mobile number found to verify." });
 
-    // Generate a secure 6-digit random number
     const otp = crypto.randomInt(100000, 999999).toString();
     
     user.otp = otp;
     user.otpExpires = new Date(Date.now() + 10 * 60000); 
     await user.save();
 
-    // Send the OTP via Email instead of SMS
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email, 
+    await sendBrevoEmail({
+      to: user.email,
+      toName: user.name,
       subject: 'Verify your Mobile Number - Enginow',
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #111827;">
@@ -65,7 +63,7 @@ router.post('/send-otp', auth, async (req, res) => {
           <p style="color: #6B7280; font-size: 12px;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
         </div>
       `
-    };
+    });
 
     await transporter.sendMail(mailOptions);
 
