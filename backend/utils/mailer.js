@@ -5,12 +5,13 @@ const port = Number(process.env.EMAIL_PORT) || 587;
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port,
-  secure: port === 465, 
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  secure: port === 465,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
+
+console.log('Mailer target:', process.env.EMAIL_HOST, ':', port, '| secure:', port === 465);
 console.log('EMAIL_HOST set:', !!process.env.EMAIL_HOST, '| EMAIL_USER set:', !!process.env.EMAIL_USER);
 transporter.verify((err) => {
   if (err) console.error('❌ Mailer config error:', err.message);
