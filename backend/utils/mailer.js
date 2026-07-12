@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
-
+console.log('EMAIL_HOST set:', !!process.env.EMAIL_HOST, '| EMAIL_USER set:', !!process.env.EMAIL_USER);
 transporter.verify((err) => {
   if (err) console.error('❌ Mailer config error:', err.message);
   else console.log('✅ Mailer ready');
