@@ -5,6 +5,7 @@ const jwt       = require('jsonwebtoken');
 const crypto    = require('crypto');
 const rateLimit = require('express-rate-limit');
 const User      = require('../models/User');
+const Notification = require('../models/Notification');
 const auth      = require('../middleware/authMiddleware');
 const mailer    = require('../utils/mailer');
 
@@ -110,6 +111,16 @@ router.get('/verify-email', async (req, res) => {
     user.emailVerifyToken   = null;
     user.emailVerifyExpires = null;
     await user.save();
+
+    try {
+      await Notification.create({
+        role: 'hr',
+        type: 'system',
+        text: `New internship application from ${user.name} is awaiting review.`,
+      });
+    } catch (notifyErr) {
+      console.error('Application notification failed:', notifyErr.message);
+    }
 
     res.redirect(`${process.env.FRONTEND_URL}?verified=true`);
   } catch (err) {

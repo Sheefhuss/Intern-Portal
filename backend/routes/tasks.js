@@ -25,7 +25,8 @@ router.get('/', auth, async (req, res) => {
         ],
       };
     }
-    const tasks = await Task.find(query).sort({ deadline: 1 });
+    const sortOrder = req.user.role === 'intern' ? { deadline: 1 } : { createdAt: -1 };
+    const tasks = await Task.find(query).sort(sortOrder);
     const decorated = await decorate(tasks);
 
     if (req.user.role === 'intern') {
@@ -246,6 +247,17 @@ router.patch('/:id/submit', auth, async (req, res) => {
       { status: 'submitted', submissionUrl: trimmedUrl, submittedAt: new Date(), source: 'intern' },
       { new: true, upsert: true }
     );
+
+    try {
+      const intern = await User.findById(req.user.id).select('name');
+      await Notification.create({
+        role: 'hr',
+        type: 'task',
+        text: `${intern?.name || 'An intern'} submitted "${task.title}" for review.`,
+      });
+    } catch (notifyErr) {
+      console.error('Submission notification failed:', notifyErr.message);
+    }
 
     res.json(submission);
   } catch (err) {

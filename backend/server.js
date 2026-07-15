@@ -128,7 +128,13 @@ app.get('/api/notifications', async (req, res) => {
     }
 
     const query = userId
-      ? { $or: [{ userId }, { role: userRole }, { role: 'all' }] }
+      ? {
+          $or: [
+            { userId },
+            { role: 'all' },
+            { role: userRole, userId: { $exists: false } },
+          ],
+        }
       : { role: 'all' };
 
     const notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(30);
