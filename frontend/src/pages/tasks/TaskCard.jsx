@@ -1,16 +1,44 @@
-import React from "react";
+import React, { useState } from "react";
 import { S } from "../../utils/theme";
-import { statusColors } from "../../utils/tasksConstants";
+import { statusColors, inputStyle } from "../../utils/tasksConstants";
 
 export default function TaskCard({
   task, isManager, currentUserId, submitting, deleting, deletingTask,
-  onSubmitClick, onWithdrawClick, onTrackClick, onDeleteClick,
+  onSubmitClick, onWithdrawClick, onTrackClick, onDeleteClick, onEditDeadline,
 }) {
   const sc = statusColors[task.status] || statusColors.pending;
   const isSubmitting = submitting === task._id;
   const isDeleting   = deleting === task._id;
   const isDeletingTask = deletingTask === task._id;
   const isOwner = !!currentUserId && task.createdBy === currentUserId;
+
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+  const [deadlineDraft, setDeadlineDraft] = useState("");
+  const [savingDeadline, setSavingDeadline] = useState(false);
+
+  const toDateInputValue = (deadline) => (deadline ? new Date(deadline).toISOString().slice(0, 10) : "");
+
+  const startEditingDeadline = () => {
+    setDeadlineDraft(toDateInputValue(task.deadline));
+    setIsEditingDeadline(true);
+  };
+
+  const cancelEditingDeadline = () => {
+    setIsEditingDeadline(false);
+    setDeadlineDraft("");
+  };
+
+  const saveDeadline = async () => {
+    setSavingDeadline(true);
+    try {
+      await onEditDeadline(task, deadlineDraft || null);
+      setIsEditingDeadline(false);
+    } catch {
+      // error already surfaced via alert in the handler; keep the editor open so they can retry
+    } finally {
+      setSavingDeadline(false);
+    }
+  };
 
   const deadlineStr = task.deadline
     ? new Date(task.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
@@ -40,9 +68,60 @@ export default function TaskCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        {deadlineStr && (
-          <div style={{ fontSize: 12, color: isPastDeadline ? "#DC2626" : "#6B7280", fontWeight: isPastDeadline ? 600 : 400 }}>
-            {isPastDeadline ? "⚠ " : ""}Due: {deadlineStr}
+        {isEditingDeadline ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="date"
+              value={deadlineDraft}
+              onChange={e => setDeadlineDraft(e.target.value)}
+              style={{ ...inputStyle, width: "auto", padding: "6px 10px", fontSize: 12 }}
+              autoFocus
+            />
+            <button
+              onClick={saveDeadline}
+              disabled={savingDeadline}
+              style={{
+                padding: "6px 12px", background: "#7C3AED", color: "#fff",
+                border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                cursor: savingDeadline ? "not-allowed" : "pointer", fontFamily: "inherit",
+              }}
+            >
+              {savingDeadline ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={cancelEditingDeadline}
+              disabled={savingDeadline}
+              style={{
+                padding: "6px 12px", background: "#fff", color: "#374151",
+                border: "1px solid #E5E7EB", borderRadius: 6, fontSize: 12, fontWeight: 600,
+                cursor: savingDeadline ? "not-allowed" : "pointer", fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {deadlineStr ? (
+              <div style={{ fontSize: 12, color: isPastDeadline ? "#DC2626" : "#6B7280", fontWeight: isPastDeadline ? 600 : 400 }}>
+                {isPastDeadline ? "⚠ " : ""}Due: {deadlineStr}
+              </div>
+            ) : (
+              isManager && isOwner && (
+                <div style={{ fontSize: 12, color: "#9CA3AF" }}>No deadline set</div>
+              )
+            )}
+            {isManager && isOwner && onEditDeadline && (
+              <button
+                onClick={startEditingDeadline}
+                style={{
+                  border: "none", background: "none", cursor: "pointer",
+                  fontSize: 12, color: "#7C3AED", fontWeight: 600, padding: 0,
+                }}
+              >
+                ✎ {deadlineStr ? "Edit" : "Set date"}
+              </button>
+            )}
           </div>
         )}
         {task.assignedDomain && (

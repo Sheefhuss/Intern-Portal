@@ -1,11 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { statusColors } from "../../utils/tasksConstants";
 
 export default function TrackingModal({
   task, rows, loading, acting, isHR, isAdmin,
   onForward, onReview, onReset, onClose,
+  comments, commentsLoading, postingComment, onPostComment, currentUserId,
 }) {
+  const [draft, setDraft] = useState("");
+
   if (!task) return null;
+
+  const handlePost = async () => {
+    if (!draft.trim()) return;
+    await onPostComment(draft.trim());
+    setDraft("");
+  };
 
   return (
     <div style={{
@@ -99,7 +108,7 @@ export default function TrackingModal({
                         </button>
                       )}
 
-                      {isAdmin && row.status !== "pending" && row.submissionId && (
+                      {(isAdmin || isHR) && row.status !== "pending" && row.submissionId && (
                         <button
                           onClick={() => onReset(row.submissionId, row.internName)}
                           disabled={isActing}
@@ -146,6 +155,74 @@ export default function TrackingModal({
             })}
           </div>
         )}
+
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #F3F4F6" }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: "#111827", marginBottom: 10 }}>
+            💬 Notes for HR / Admin
+          </div>
+
+          {commentsLoading ? (
+            <div style={{ textAlign: "center", padding: 16, color: "#9CA3AF", fontSize: 12 }}>Loading notes…</div>
+          ) : comments.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 12 }}>
+              No notes yet. Use this to flag issues or updates between HR and Admin on this task.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12, maxHeight: 220, overflowY: "auto" }}>
+              {comments.map(c => {
+                const isMine = c.author === currentUserId;
+                return (
+                  <div
+                    key={c._id}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8,
+                      background: isMine ? "#F5F3FF" : "#F9FAFB",
+                      border: "1px solid " + (isMine ? "#DDD6FE" : "#F3F4F6"),
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: c.authorRole === "admin" ? "#DC2626" : "#7C3AED" }}>
+                        {c.authorName} · {c.authorRole.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize: 10, color: "#9CA3AF" }}>
+                        {new Date(c.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#374151", whiteSpace: "pre-wrap" }}>{c.text}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {(isHR || isAdmin) && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !postingComment) handlePost(); }}
+                placeholder="Add a note for HR/Admin about this task…"
+                style={{
+                  flex: 1, padding: "8px 12px", borderRadius: 8,
+                  border: "1px solid #E5E7EB", fontSize: 12, fontFamily: "inherit", outline: "none",
+                }}
+              />
+              <button
+                onClick={handlePost}
+                disabled={postingComment || !draft.trim()}
+                style={{
+                  padding: "8px 16px", background: "#7C3AED", color: "#fff",
+                  border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: (postingComment || !draft.trim()) ? "not-allowed" : "pointer",
+                  opacity: (postingComment || !draft.trim()) ? 0.6 : 1,
+                  fontFamily: "inherit",
+                }}
+              >
+                {postingComment ? "Posting…" : "Post"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -34,6 +34,10 @@ export default function TasksPage({ session }) {
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [acting, setActing]                   = useState(null);
 
+  const [comments, setComments]           = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [postingComment, setPostingComment]   = useState(false);
+
   const fetchTasks = () => {
     return AuthService.apiFetch("/tasks")
       .then(data => setTasks(data))
@@ -100,6 +104,23 @@ export default function TasksPage({ session }) {
     }
   };
 
+  const handleEditDeadline = async (task, newDeadline) => {
+    if (task.createdBy !== currentUserId) {
+      alert("Only the admin/HR who created this task can edit its deadline.");
+      return;
+    }
+    try {
+      const updated = await AuthService.apiFetch(`/tasks/${task._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ deadline: newDeadline || null }),
+      });
+      setTasks(prev => prev.map(t => t._id === task._id ? { ...t, ...updated } : t));
+    } catch (err) {
+      alert(err.message || "Failed to update deadline.");
+      throw err;
+    }
+  };
+
   const handleSubmit = async (taskId, submissionUrl) => {
     setSubmitting(taskId);
     try {
@@ -133,6 +154,18 @@ export default function TasksPage({ session }) {
     }
   };
 
+  const fetchComments = async (taskId) => {
+    setCommentsLoading(true);
+    try {
+      const data = await AuthService.apiFetch(`/tasks/${taskId}/comments`);
+      setComments(data);
+    } catch {
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
   const openTracking = async (task) => {
     setTrackingTask(task);
     setTrackingLoading(true);
@@ -143,6 +176,29 @@ export default function TasksPage({ session }) {
       setTrackingRows([]);
     } finally {
       setTrackingLoading(false);
+    }
+    fetchComments(task._id);
+  };
+
+  const closeTracking = () => {
+    setTrackingTask(null);
+    setTrackingRows([]);
+    setComments([]);
+  };
+
+  const postComment = async (text) => {
+    if (!trackingTask) return;
+    setPostingComment(true);
+    try {
+      await AuthService.apiFetch(`/tasks/${trackingTask._id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      await fetchComments(trackingTask._id);
+    } catch (err) {
+      alert(err.message || "Failed to post comment.");
+    } finally {
+      setPostingComment(false);
     }
   };
 
@@ -198,11 +254,18 @@ export default function TasksPage({ session }) {
       if (newDeadline === null) return; // admin cancelled the prompt
     }
 
+    const comment = window.prompt(
+      `Add an optional note for ${internName} about this reset (what needs fixing, why it was reset, etc.) — leave blank to skip:`
+    ) || "";
+
     setActing(submissionId);
     try {
       await AuthService.apiFetch(`/tasks/${submissionId}/reset`, {
         method: "PATCH",
-        body: JSON.stringify({ newDeadline: newDeadline?.trim() || undefined }),
+        body: JSON.stringify({
+          newDeadline: newDeadline?.trim() || undefined,
+          comment: comment.trim() || undefined,
+        }),
       });
       await refreshAfterAction();
     } catch (err) {
@@ -267,6 +330,7 @@ export default function TasksPage({ session }) {
             onWithdrawClick={handleWithdraw}
             onTrackClick={openTracking}
             onDeleteClick={handleDeleteTask}
+            onEditDeadline={handleEditDeadline}
           />
         ))
       )}
@@ -291,7 +355,12 @@ export default function TasksPage({ session }) {
         onForward={forwardSubmission}
         onReview={reviewSubmission}
         onReset={resetSubmission}
-        onClose={() => setTrackingTask(null)}
+        onClose={closeTracking}
+        comments={comments}
+        commentsLoading={commentsLoading}
+        postingComment={postingComment}
+        onPostComment={postComment}
+        currentUserId={currentUserId}
       />
     </div>
   );

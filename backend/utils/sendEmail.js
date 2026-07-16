@@ -101,7 +101,7 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) 
   return sendBrevoEmail({ to, subject, html });
 }
 
-async function sendTaskEmail({ to, internName, taskTitle, type }) {
+async function sendTaskEmail({ to, internName, taskTitle, type, note }) {
   const copy = {
     reset: {
       label: 'Submission Reset',
@@ -113,6 +113,12 @@ async function sendTaskEmail({ to, internName, taskTitle, type }) {
     heading: `"${taskTitle}" was updated`,
     body: `There's an update on your task <strong>${taskTitle}</strong>.`,
   };
+
+  const noteHtml = note
+    ? `<p style="font-size:13px;color:#374151;line-height:1.6;margin:14px 0 0;padding:12px 14px;background:#F5F3FF;border-left:3px solid #7C3AED;border-radius:4px;">
+         <strong>Note from reviewer:</strong> ${note}
+       </p>`
+    : '';
 
   const html = `
       <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
@@ -128,6 +134,7 @@ async function sendTaskEmail({ to, internName, taskTitle, type }) {
             <p style="font-size:14px;color:#374151;line-height:1.7;margin:0;">
               Hi ${internName || 'there'}, ${copy.body}
             </p>
+            ${noteHtml}
           </div>
           <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
         </div>

@@ -3,9 +3,10 @@ const router = express.Router();
 const Task = require('../models/Task');
 const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
+const TaskComment = require('../models/TaskComment');
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
-const { decorate, batchInterns } = require('../utils/taskUtils');
+const { decorate, batchInterns, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
 
 router.get('/', auth, async (req, res) => {
@@ -129,7 +130,7 @@ router.post('/', auth, async (req, res) => {
             assignedDomain, assignedBatch, assignedTo, assignmentType } = req.body;
 
     const payload = {
-      title, description, deadline, submissionLink, formLink,
+      title, description, deadline: toEndOfDay(deadline), submissionLink, formLink,
       requiresLink: requiresLink === false ? false : true,
       assignedDomain, assignedBatch,
       createdBy: req.user.id,
@@ -196,13 +197,20 @@ router.patch('/:id', auth, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
 
+    if (task.createdBy?.toString() !== req.user.id)
+      return res.status(403).json({ error: 'Only the admin/HR who created this task can edit it.' });
+
     const { title, description, deadline, submissionLink, formLink, requiresLink } = req.body;
     if (title !== undefined) {
       if (!title.trim()) return res.status(400).json({ error: 'Title cannot be empty.' });
       task.title = title.trim();
     }
     if (description !== undefined) task.description = description;
-    if (deadline !== undefined) task.deadline = deadline;
+    if (deadline !== undefined) {
+      if (deadline && isNaN(new Date(deadline).getTime()))
+        return res.status(400).json({ error: 'Invalid deadline provided.' });
+      task.deadline = toEndOfDay(deadline);
+    }
     if (submissionLink !== undefined) task.submissionLink = submissionLink;
     if (formLink !== undefined) task.formLink = formLink;
     if (requiresLink !== undefined) task.requiresLink = requiresLink;
@@ -230,6 +238,53 @@ router.delete('/:id', auth, async (req, res) => {
     await Task.findByIdAndDelete(req.params.id);
 
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:id/comments', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const comments = await TaskComment.find({ task: req.params.id }).sort({ createdAt: 1 });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/comments', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const { text } = req.body;
+    if (!text || !text.trim())
+      return res.status(400).json({ error: 'Comment text is required.' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const author = await User.findById(req.user.id).select('name');
+
+    const comment = await TaskComment.create({
+      task: task._id,
+      author: req.user.id,
+      authorName: author?.name || 'Unknown',
+      authorRole: req.user.role,
+      text: text.trim(),
+    });
+
+    const notifyRole = req.user.role === 'hr' ? 'admin' : 'hr';
+    await Notification.create({
+      role: notifyRole,
+      type: 'task',
+      text: `${author?.name || 'Someone'} (${req.user.role.toUpperCase()}) commented on "${task.title}": "${text.trim()}"`,
+    });
+
+    res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

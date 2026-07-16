@@ -6,7 +6,7 @@ const Certificate = require('../models/Certificate');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
-const { isIndividual } = require('../utils/taskUtils');
+const { isIndividual, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
 const { sendTaskEmail } = require('../utils/sendEmail');
 
@@ -161,7 +161,7 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
     if (!['admin', 'hr'].includes(req.user.role))
       return res.status(403).json({ error: 'Access denied.' });
 
-    const { newDeadline } = req.body;
+    const { newDeadline, comment } = req.body;
     if (newDeadline && isNaN(new Date(newDeadline).getTime()))
       return res.status(400).json({ error: 'Invalid deadline provided.' });
 
@@ -183,7 +183,7 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
 
     let task = await Task.findById(submission.task);
     if (newDeadline && task) {
-      task.deadline = new Date(newDeadline);
+      task.deadline = toEndOfDay(newDeadline);
       await task.save();
     }
     const intern = await User.findById(submission.intern).select('name email');
@@ -192,11 +192,12 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
       const deadlineNote = newDeadline
         ? ` The deadline has been extended to ${new Date(newDeadline).toLocaleDateString()}.`
         : '';
+      const commentNote = comment ? ` Note: "${comment}"` : '';
       await Notification.create({
         userId: intern._id,
         role: 'intern',
         type: 'task',
-        text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.${deadlineNote}`,
+        text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.${deadlineNote}${commentNote}`,
       });
       try {
         await sendTaskEmail({
@@ -204,6 +205,7 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
           internName: intern.name,
           taskTitle: task?.title || 'a task',
           type: 'reset',
+          note: comment || undefined,
         });
       } catch (emailErr) {
         console.error('Reset email failed:', emailErr.message);
