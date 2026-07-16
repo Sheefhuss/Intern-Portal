@@ -223,6 +223,9 @@ router.delete('/:id', auth, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
 
+    if (task.createdBy?.toString() !== req.user.id)
+      return res.status(403).json({ error: 'Only the admin/HR who created this task can delete it.' });
+
     await Submission.deleteMany({ task: task._id });
     await Task.findByIdAndDelete(req.params.id);
 

@@ -3,12 +3,14 @@ import { S } from "../../utils/theme";
 import { statusColors } from "../../utils/tasksConstants";
 
 export default function TaskCard({
-  task, isManager, submitting, deleting,
-  onSubmitClick, onWithdrawClick, onTrackClick,
+  task, isManager, currentUserId, submitting, deleting, deletingTask,
+  onSubmitClick, onWithdrawClick, onTrackClick, onDeleteClick,
 }) {
   const sc = statusColors[task.status] || statusColors.pending;
   const isSubmitting = submitting === task._id;
   const isDeleting   = deleting === task._id;
+  const isDeletingTask = deletingTask === task._id;
+  const isOwner = !!currentUserId && task.createdBy === currentUserId;
 
   const deadlineStr = task.deadline
     ? new Date(task.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
@@ -100,17 +102,34 @@ export default function TaskCard({
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 4 }}>
         {isManager ? (
-          <button
-            onClick={() => onTrackClick(task)}
-            style={{
-              padding: "8px 16px",
-              background: "linear-gradient(135deg, #1E40AF, #1D4ED8)",
-              color: "#fff", border: "none", borderRadius: 8,
-              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
-            Track Submissions
-          </button>
+          <>
+            <button
+              onClick={() => onTrackClick(task)}
+              style={{
+                padding: "8px 16px",
+                background: "linear-gradient(135deg, #1E40AF, #1D4ED8)",
+                color: "#fff", border: "none", borderRadius: 8,
+                fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              Track Submissions
+            </button>
+            {onDeleteClick && isOwner && (
+              <button
+                onClick={() => onDeleteClick(task)}
+                disabled={isDeletingTask}
+                style={{
+                  padding: "8px 16px", background: "#fff", color: "#DC2626",
+                  border: "1px solid #FCA5A5", borderRadius: 8,
+                  fontSize: 12, fontWeight: 600,
+                  cursor: isDeletingTask ? "not-allowed" : "pointer", fontFamily: "inherit",
+                  opacity: isDeletingTask ? 0.7 : 1,
+                }}
+              >
+                {isDeletingTask ? "Deleting…" : "🗑 Delete"}
+              </button>
+            )}
+          </>
         ) : (
           <>
             {task.status === "pending" && (

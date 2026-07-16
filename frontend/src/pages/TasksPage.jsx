@@ -13,6 +13,7 @@ export default function TasksPage({ session }) {
   const isAdmin   = role === "admin";
   const isHR      = role === "hr";
   const isManager = isAdmin || isHR;
+  const currentUserId = AuthService.getCurrentUserId();
 
   const [tasks, setTasks]       = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -24,6 +25,7 @@ export default function TasksPage({ session }) {
   const [success, setSuccess]   = useState(false);
   const [submitting, setSubmitting] = useState(null);
   const [deleting, setDeleting]     = useState(null);
+  const [deletingTask, setDeletingTask] = useState(null);
 
   const [submitModalTask, setSubmitModalTask] = useState(null);
 
@@ -78,6 +80,23 @@ export default function TasksPage({ session }) {
       alert("Failed to create task.");
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleDeleteTask = async (task) => {
+    if (task.createdBy !== currentUserId) {
+      alert("Only the admin/HR who created this task can delete it.");
+      return;
+    }
+    if (!window.confirm(`Delete "${task.title}"? This will remove it and all intern submissions for it. This can't be undone.`)) return;
+    setDeletingTask(task._id);
+    try {
+      await AuthService.apiFetch(`/tasks/${task._id}`, { method: "DELETE" });
+      setTasks(prev => prev.filter(t => t._id !== task._id));
+    } catch (err) {
+      alert(err.message || "Failed to delete task.");
+    } finally {
+      setDeletingTask(null);
     }
   };
 
@@ -240,11 +259,14 @@ export default function TasksPage({ session }) {
             key={task._id}
             task={task}
             isManager={isManager}
+            currentUserId={currentUserId}
             submitting={submitting}
             deleting={deleting}
+            deletingTask={deletingTask}
             onSubmitClick={task.status === "pending" ? () => handleSubmitClick(task) : null}
             onWithdrawClick={handleWithdraw}
             onTrackClick={openTracking}
+            onDeleteClick={handleDeleteTask}
           />
         ))
       )}
