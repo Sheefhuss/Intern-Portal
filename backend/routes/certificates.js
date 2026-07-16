@@ -125,6 +125,26 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
 </body>
 </html>`;
 };
+router.get('/logo.png', (req, res) => {
+  if (!fs.existsSync(LOGO_PATH)) return res.status(404).end();
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(LOGO_PATH).pipe(res);
+});
+
+router.get('/:certificateId/qr.png', async (req, res) => {
+  try {
+    const verifyUrl = `${BASE_URL}/api/certificates/${req.params.certificateId}/view`;
+    const qrBuffer = await QRCode.toBuffer(verifyUrl, {
+      width: 140, margin: 1, color: { dark: '#7C3AED', light: '#ffffff' },
+    });
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(qrBuffer);
+  } catch (err) {
+    res.status(500).end();
+  }
+});
 
 router.get('/my', auth, async (req, res) => {
   try {

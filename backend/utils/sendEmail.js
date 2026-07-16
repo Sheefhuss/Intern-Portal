@@ -1,22 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const QRCode = require('qrcode');
 const { sendBrevoEmail } = require('./brevoMailer');
+
+   const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl }) {
   const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
-  const logoPath = path.join(__dirname, '../public/enginow.png');
-  const hasLogo = fs.existsSync(logoPath);
-  const logoDataUri = hasLogo
-    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`
-    : null;
-
-  const qrBuffer = await QRCode.toBuffer(verifyUrl, {
-    width: 140, margin: 1, color: { dark: '#7C3AED', light: '#ffffff' },
-  });
-  const qrDataUri = `data:image/png;base64,${qrBuffer.toString('base64')}`;
+  const hasLogo = true;
+  const logoDataUri = `${BASE_URL}/api/certificates/logo.png`;
+  const qrDataUri = `${BASE_URL}/api/certificates/${certificateId}/qr.png`;
 
   const html = `
       <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
