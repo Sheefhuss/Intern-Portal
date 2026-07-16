@@ -15,9 +15,23 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const server = http.createServer(app);
 
+const productionOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+const vercelProjectSlug = process.env.VERCEL_PROJECT_NAME
+  || productionOrigin.match(/^https:\/\/([\w-]+)\.vercel\.app$/)?.[1];
+const previewOriginPattern = vercelProjectSlug
+  ? new RegExp(`^https:\\/\\/${vercelProjectSlug}-[\\w-]+\\.vercel\\.app$`)
+  : null;
+
+const allowedSocketOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (origin === productionOrigin || origin === 'http://localhost:5173') return callback(null, true);
+  if (previewOriginPattern && previewOriginPattern.test(origin)) return callback(null, true);
+  callback(new Error(`Origin ${origin} not allowed by Socket.IO CORS`));
+};
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: allowedSocketOrigin,
     methods: ["GET", "POST"]
   }
 });
