@@ -101,4 +101,40 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) 
   return sendBrevoEmail({ to, subject, html });
 }
 
-module.exports = { sendCertificateEmail, sendMeetingEmail };
+async function sendTaskEmail({ to, internName, taskTitle, type }) {
+  const copy = {
+    reset: {
+      label: 'Submission Reset',
+      heading: `↩️ "${taskTitle}" was reset to Pending`,
+      body: `Your submission for <strong>${taskTitle}</strong> has been reset to Pending by the review team. Please review the feedback (if any) and resubmit when ready.`,
+    },
+  }[type] || {
+    label: 'Task Update',
+    heading: `"${taskTitle}" was updated`,
+    body: `There's an update on your task <strong>${taskTitle}</strong>.`,
+  };
+
+  const html = `
+      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
+        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
+          <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
+          <div style="padding:36px 40px;">
+            <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
+              ${copy.label}
+            </p>
+            <h1 style="font-size:22px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
+              ${copy.heading}
+            </h1>
+            <p style="font-size:14px;color:#374151;line-height:1.7;margin:0;">
+              Hi ${internName || 'there'}, ${copy.body}
+            </p>
+          </div>
+          <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
+        </div>
+      </div>
+    `;
+
+  return sendBrevoEmail({ to, toName: internName, subject: copy.heading, html });
+}
+
+module.exports = { sendCertificateEmail, sendMeetingEmail, sendTaskEmail };

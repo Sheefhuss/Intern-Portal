@@ -10,6 +10,33 @@ const { isIndividual } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
 const { sendTaskEmail } = require('../utils/sendEmail');
 
+router.get('/progress/interns', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const subs = await Submission.find({}).populate('task', 'title status assignedTo assignedDomain assignedBatch deadline createdBy');
+
+    const byIntern = {};
+    subs.forEach(s => {
+      const key = s.intern.toString();
+      if (!byIntern[key]) byIntern[key] = [];
+      byIntern[key].push({
+        taskId: s.task?._id,
+        title: s.task?.title,
+        deadline: s.task?.deadline,
+        status: s.status,
+        submissionUrl: s.submissionUrl,
+        source: s.source,
+      });
+    });
+
+    res.json(byIntern);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch('/:id/submit', auth, async (req, res) => {
   try {
     if (req.user.role !== 'intern')
@@ -20,8 +47,7 @@ router.patch('/:id/submit', auth, async (req, res) => {
       return res.status(400).json({ error: 'Submission link is required.' });
 
     const trimmedUrl = submissionUrl.trim();
-    const hasProtocol = trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://');
-    if (!hasProtocol)
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://'))
       return res.status(400).json({ error: 'Submission link must start with http:// or https://' });
 
     const task = await Task.findById(req.params.id);
@@ -38,14 +64,20 @@ router.patch('/:id/submit', auth, async (req, res) => {
 
     const submission = await Submission.findOneAndUpdate(
       { task: task._id, intern: req.user.id },
-      {
-        status: 'submitted',
-        submissionUrl: trimmedUrl,
-        submittedAt: new Date(),
-        source: 'intern',
-      },
+      { status: 'submitted', submissionUrl: trimmedUrl, submittedAt: new Date(), source: 'intern' },
       { new: true, upsert: true }
     );
+
+    try {
+      const intern = await User.findById(req.user.id).select('name');
+      await Notification.create({
+        role: 'hr',
+        type: 'task',
+        text: `${intern?.name || 'An intern'} submitted "${task.title}" for review.`,
+      });
+    } catch (notifyErr) {
+      console.error('Submission notification failed:', notifyErr.message);
+    }
 
     res.json(submission);
   } catch (err) {
@@ -145,7 +177,6 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
         type: 'task',
         text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.`,
       });
-
       try {
         await sendTaskEmail({
           to: intern.email,
@@ -159,33 +190,6 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
     }
 
     res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/progress/interns', auth, async (req, res) => {
-  try {
-    if (!['admin', 'hr'].includes(req.user.role))
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const subs = await Submission.find({}).populate('task', 'title status assignedTo assignedDomain assignedBatch deadline createdBy');
-
-    const byIntern = {};
-    subs.forEach(s => {
-      const key = s.intern.toString();
-      if (!byIntern[key]) byIntern[key] = [];
-      byIntern[key].push({
-        taskId: s.task?._id,
-        title: s.task?.title,
-        deadline: s.task?.deadline,
-        status: s.status,
-        submissionUrl: s.submissionUrl,
-        source: s.source,
-      });
-    });
-
-    res.json(byIntern);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

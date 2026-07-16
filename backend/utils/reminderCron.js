@@ -9,16 +9,18 @@ cron.schedule('*/5 * * * *', async () => {
 
   try {
     const upcomingMeetings = await Meeting.find({
-      status: 'approved',
+      status: { $in: ['approved', 'booked'] },
       reminderSent: { $ne: true },
       scheduledAt: { $gte: oneHourFromNow, $lte: sixtyFiveMinsFromNow }
-    }).populate('createdBy');
+    }).populate('createdBy').populate('bookedBy');
 
     if (upcomingMeetings.length === 0) return;
     const emailPromises = upcomingMeetings.map(async (meeting) => {
-      if (meeting.createdBy?.email) {
+      const attendee = meeting.type === 'slot' ? meeting.bookedBy : meeting.createdBy;
+
+      if (attendee?.email) {
         await sendMeetingEmail({
-          to: meeting.createdBy.email,
+          to: attendee.email,
           subject: `Reminder: ${meeting.title} starts in 1 hour`,
           title: meeting.title,
           time: meeting.scheduledAt,

@@ -130,7 +130,9 @@ router.get('/my', auth, async (req, res) => {
   try {
     if (req.user.role !== 'intern')
       return res.status(403).json({ error: 'Access denied.' });
-    res.json(null);
+
+    const certificate = await Certificate.findOne({ student: req.user.id });
+    res.json(certificate || null);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

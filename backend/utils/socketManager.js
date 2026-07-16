@@ -1,18 +1,32 @@
+const jwt = require('jsonwebtoken');
 const Message = require('../models/Message');
 
 const onlineUsers = new Map();
 
 module.exports = (io) => {
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) return next(new Error('Authentication required.'));
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.userId = decoded.id;
+      next();
+    } catch (err) {
+      next(new Error('Invalid or expired token.'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    
-    socket.on('join_chat', (userId) => {
-      onlineUsers.set(userId, socket.id);
+
+    socket.on('join_chat', () => {
+      onlineUsers.set(socket.userId, socket.id);
     });
 
     socket.on('send_message', async (data) => {
       try {
         const newMessage = await Message.create({
-          sender: data.sender,
+          sender: socket.userId,
           receiver: data.receiver,
           content: data.content
         });
@@ -27,13 +41,13 @@ module.exports = (io) => {
       }
     });
 
-    socket.on('edit_message', async ({ messageId, newContent, senderId, receiverId }) => {
+    socket.on('edit_message', async ({ messageId, newContent, receiverId }) => {
       try {
         const msg = await Message.findById(messageId);
-        
-        if (msg && String(msg.sender) === String(senderId) && !msg.isDeleted) {
+
+        if (msg && String(msg.sender) === String(socket.userId) && !msg.isDeleted) {
           const hoursDiff = (new Date() - new Date(msg.createdAt)) / (1000 * 60 * 60);
-          
+
           if (hoursDiff <= 3) {
             msg.content = newContent;
             msg.isEdited = true;
@@ -51,11 +65,11 @@ module.exports = (io) => {
       }
     });
 
-    socket.on('delete_message', async ({ messageId, senderId, receiverId }) => {
+    socket.on('delete_message', async ({ messageId, receiverId }) => {
       try {
         const msg = await Message.findById(messageId);
-        
-        if (msg && String(msg.sender) === String(senderId)) {
+
+        if (msg && String(msg.sender) === String(socket.userId)) {
           msg.isDeleted = true;
           msg.content = "This message was deleted";
           await msg.save();

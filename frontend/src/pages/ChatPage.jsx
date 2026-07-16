@@ -100,7 +100,6 @@ export default function ChatPage({ currentUserId, socket }) {
     if (!window.confirm("Delete this message for everyone?")) return;
     socket.emit("delete_message", {
       messageId: msgId,
-      senderId: currentUserId,
       receiverId: selectedUser._id
     });
   };
@@ -113,13 +112,11 @@ export default function ChatPage({ currentUserId, socket }) {
       socket.emit("edit_message", {
         messageId: editingMsgId,
         newContent: messageInput.trim(),
-        senderId: currentUserId,
         receiverId: selectedUser._id
       });
       setEditingMsgId(null);
     } else {
       socket.emit("send_message", {
-        sender: currentUserId,
         receiver: selectedUser._id,
         content: messageInput.trim(),
       });

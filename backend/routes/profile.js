@@ -65,11 +65,9 @@ router.post('/send-otp', auth, async (req, res) => {
       `
     });
 
-    await transporter.sendMail(mailOptions);
-
     res.json({ success: true, message: "OTP sent successfully to your email!" });
   } catch (err) {
-    console.error("Nodemailer Error:", err);
+    console.error("OTP send error:", err);
     res.status(500).json({ error: "Failed to send OTP email." });
   }
 });

@@ -89,9 +89,11 @@ export default function App() {
       })
       .catch(() => {});
 
-    const socketInstance = io(AuthService.getApiBase().replace("/api", ""));
+    const socketInstance = io(AuthService.getApiBase().replace("/api", ""), {
+      auth: { token: localStorage.getItem("token") }
+    });
     setGlobalSocket(socketInstance);
-    socketInstance.emit("join_chat", currentUserId);
+    socketInstance.emit("join_chat");
 
     const handleReceive = () => {
       if (currentPageRef.current !== "chat") {
