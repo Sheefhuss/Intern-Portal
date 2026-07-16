@@ -139,7 +139,6 @@ export default function TasksPage({ session }) {
       const rows = await AuthService.apiFetch(`/tasks/${trackingTask._id}/submissions`);
       setTrackingRows(rows);
     } catch {
-      // keep existing rows
     }
   };
 
@@ -169,9 +168,23 @@ export default function TasksPage({ session }) {
 
   const resetSubmission = async (submissionId, internName) => {
     if (!window.confirm(`Reset ${internName}'s submission back to Pending?`)) return;
+
+    const isPastDue = trackingTask?.deadline && new Date(trackingTask.deadline) < new Date();
+    let newDeadline;
+    if (isPastDue) {
+      newDeadline = window.prompt(
+        "This task's deadline has already passed, so the intern won't be able to resubmit until it's extended.\n" +
+        "Enter a new deadline (YYYY-MM-DD):"
+      );
+      if (newDeadline === null) return; // admin cancelled the prompt
+    }
+
     setActing(submissionId);
     try {
-      await AuthService.apiFetch(`/tasks/${submissionId}/reset`, { method: "PATCH" });
+      await AuthService.apiFetch(`/tasks/${submissionId}/reset`, {
+        method: "PATCH",
+        body: JSON.stringify({ newDeadline: newDeadline?.trim() || undefined }),
+      });
       await refreshAfterAction();
     } catch (err) {
       alert(err.message);
@@ -229,7 +242,6 @@ export default function TasksPage({ session }) {
             isManager={isManager}
             submitting={submitting}
             deleting={deleting}
-            // Only pass onSubmitClick when task is still pending — hides submit button otherwise
             onSubmitClick={task.status === "pending" ? () => handleSubmitClick(task) : null}
             onWithdrawClick={handleWithdraw}
             onTrackClick={openTracking}

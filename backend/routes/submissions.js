@@ -45,6 +45,9 @@ router.patch('/:id/submit', auth, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
 
+    if (task.deadline && new Date(task.deadline) < new Date())
+      return res.status(400).json({ error: 'The deadline for this task has passed. Ask your reviewer to extend it.' });
+
     const linkRequired = task.requiresLink !== false;
     const { submissionUrl } = req.body;
     let trimmedUrl = '';
@@ -57,7 +60,6 @@ router.patch('/:id/submit', auth, async (req, res) => {
       if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://'))
         return res.status(400).json({ error: 'Submission link must start with http:// or https://' });
     } else if (submissionUrl && submissionUrl.trim()) {
-      // Link is optional for this task, but store it if the intern provided one anyway.
       trimmedUrl = submissionUrl.trim();
     }
 
@@ -159,6 +161,10 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
     if (!['admin', 'hr'].includes(req.user.role))
       return res.status(403).json({ error: 'Access denied.' });
 
+    const { newDeadline } = req.body;
+    if (newDeadline && isNaN(new Date(newDeadline).getTime()))
+      return res.status(400).json({ error: 'Invalid deadline provided.' });
+
     const submission = await Submission.findByIdAndUpdate(
       req.params.submissionId,
       {
@@ -175,15 +181,22 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
 
     await Certificate.deleteOne({ student: submission.intern });
 
-    const task = await Task.findById(submission.task).select('title');
+    let task = await Task.findById(submission.task);
+    if (newDeadline && task) {
+      task.deadline = new Date(newDeadline);
+      await task.save();
+    }
     const intern = await User.findById(submission.intern).select('name email');
 
     if (intern) {
+      const deadlineNote = newDeadline
+        ? ` The deadline has been extended to ${new Date(newDeadline).toLocaleDateString()}.`
+        : '';
       await Notification.create({
         userId: intern._id,
         role: 'intern',
         type: 'task',
-        text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.`,
+        text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.${deadlineNote}`,
       });
       try {
         await sendTaskEmail({
