@@ -180,9 +180,12 @@ export default function TasksPage({ session }) {
     }
   };
 
-  // Only allow opening the submit modal if the task is still pending (intern view)
   const handleSubmitClick = (task) => {
     if (task.status !== "pending") return;
+    if (task.requiresLink === false) {
+      handleSubmit(task._id, "");
+      return;
+    }
     setSubmitModalTask(task);
   };
 

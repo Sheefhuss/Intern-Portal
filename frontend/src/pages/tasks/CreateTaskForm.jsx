@@ -90,6 +90,20 @@ export default function CreateTaskForm({
         </div>
 
         <div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={form.requiresLink}
+              onChange={e => setForm({ ...form, requiresLink: e.target.checked })}
+            />
+            Require interns to paste a submission link
+          </label>
+          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+            Turn this off if the Google Form above <em>is</em> the submission — interns will just be able to mark the task as done with one click.
+          </div>
+        </div>
+
+        <div>
           <label style={labelStyle}>Brief / Resource Link</label>
           <input
             value={form.formLink}

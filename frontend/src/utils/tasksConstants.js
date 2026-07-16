@@ -12,7 +12,7 @@ export const creatorBadge = {
 
 export const emptyForm = {
   title: "", description: "", deadline: "",
-  submissionLink: "", formLink: "",
+  submissionLink: "", formLink: "", requiresLink: true,
   assignedDomain: "", assignedBatch: "", assignedTo: "",
   assignmentType: "batch",
 };

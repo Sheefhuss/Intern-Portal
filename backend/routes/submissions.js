@@ -42,16 +42,24 @@ router.patch('/:id/submit', auth, async (req, res) => {
     if (req.user.role !== 'intern')
       return res.status(403).json({ error: 'Only interns can submit.' });
 
-    const { submissionUrl } = req.body;
-    if (!submissionUrl || !submissionUrl.trim())
-      return res.status(400).json({ error: 'Submission link is required.' });
-
-    const trimmedUrl = submissionUrl.trim();
-    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://'))
-      return res.status(400).json({ error: 'Submission link must start with http:// or https://' });
-
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    const linkRequired = task.requiresLink !== false;
+    const { submissionUrl } = req.body;
+    let trimmedUrl = '';
+
+    if (linkRequired) {
+      if (!submissionUrl || !submissionUrl.trim())
+        return res.status(400).json({ error: 'Submission link is required.' });
+
+      trimmedUrl = submissionUrl.trim();
+      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://'))
+        return res.status(400).json({ error: 'Submission link must start with http:// or https://' });
+    } else if (submissionUrl && submissionUrl.trim()) {
+      // Link is optional for this task, but store it if the intern provided one anyway.
+      trimmedUrl = submissionUrl.trim();
+    }
 
     const eligible = isIndividual(task)
       ? task.assignedTo?.toString() === req.user.id

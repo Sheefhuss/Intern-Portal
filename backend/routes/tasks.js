@@ -125,11 +125,12 @@ router.post('/', auth, async (req, res) => {
     if (!['admin', 'hr'].includes(req.user.role))
       return res.status(403).json({ error: 'Access denied.' });
 
-    const { title, description, deadline, submissionLink, formLink,
+    const { title, description, deadline, submissionLink, formLink, requiresLink,
             assignedDomain, assignedBatch, assignedTo, assignmentType } = req.body;
 
     const payload = {
       title, description, deadline, submissionLink, formLink,
+      requiresLink: requiresLink === false ? false : true,
       assignedDomain, assignedBatch,
       createdBy: req.user.id,
     };
@@ -195,7 +196,7 @@ router.patch('/:id', auth, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
 
-    const { title, description, deadline, submissionLink, formLink } = req.body;
+    const { title, description, deadline, submissionLink, formLink, requiresLink } = req.body;
     if (title !== undefined) {
       if (!title.trim()) return res.status(400).json({ error: 'Title cannot be empty.' });
       task.title = title.trim();
@@ -204,6 +205,7 @@ router.patch('/:id', auth, async (req, res) => {
     if (deadline !== undefined) task.deadline = deadline;
     if (submissionLink !== undefined) task.submissionLink = submissionLink;
     if (formLink !== undefined) task.formLink = formLink;
+    if (requiresLink !== undefined) task.requiresLink = requiresLink;
 
     await task.save();
     const [decorated] = await decorate([task]);

@@ -9,6 +9,7 @@ const taskSchema = new mongoose.Schema({
   deadline:       { type: Date },
   submissionLink: { type: String, default: '' },
   formLink:       { type: String, default: '' },
+  requiresLink:   { type: Boolean, default: true },
   status:         { type: String, enum: ['pending', 'submitted', 'hr_reviewed', 'reviewed'], default: 'pending' },
   createdBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

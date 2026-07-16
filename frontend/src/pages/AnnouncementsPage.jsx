@@ -9,6 +9,9 @@ const statusColors = {
 };
 
 export default function TasksPage({ session }) {
+  const role = session?.role?.toLowerCase();
+  const isIntern = role === "intern";
+
   const [tasks, setTasks]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState("all");
@@ -27,7 +30,9 @@ export default function TasksPage({ session }) {
     try {
       await AuthService.apiFetch(`/tasks/${taskId}/submit`, { method: "PATCH" });
       setTasks(tasks.map(t => t._id === taskId ? { ...t, status: "submitted" } : t));
-    } catch { alert("Failed to update status."); }
+    } catch (err) {
+      alert(err.message || "Failed to update status.");
+    }
   };
 
   const isOverdue = (deadline) =>
@@ -113,15 +118,21 @@ export default function TasksPage({ session }) {
                 )}
               </div>
 
-              {task.status === "pending" && (
+              {isIntern && task.status === "pending" && (
                 <div style={{ marginTop: 14 }}>
-                  <button onClick={() => handleSubmit(task._id)} style={{
-                    padding: "8px 18px", background: "#7C3AED", color: "#fff",
-                    border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    cursor: "pointer",
-                  }}>
-                    Mark as Submitted
-                  </button>
+                  {task.requiresLink === false ? (
+                    <button onClick={() => handleSubmit(task._id)} style={{
+                      padding: "8px 18px", background: "#7C3AED", color: "#fff",
+                      border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      cursor: "pointer",
+                    }}>
+                      Mark as Submitted
+                    </button>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#6B7280" }}>
+                      This task needs a submission link — submit it from the <strong>Tasks</strong> page.
+                    </div>
+                  )}
                 </div>
               )}
             </div>

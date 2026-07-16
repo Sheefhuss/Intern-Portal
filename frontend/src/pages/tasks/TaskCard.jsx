@@ -125,7 +125,7 @@ export default function TaskCard({
                   cursor: isSubmitting ? "not-allowed" : "pointer", fontFamily: "inherit",
                 }}
               >
-                {isSubmitting ? "Submitting…" : "Submit Task"}
+                {isSubmitting ? "Submitting…" : task.requiresLink === false ? "Mark as Submitted" : "Submit Task"}
               </button>
             )}
 
