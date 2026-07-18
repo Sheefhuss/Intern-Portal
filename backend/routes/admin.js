@@ -50,8 +50,9 @@ router.patch('/users/:id', auth, requireAdmin, async (req, res) => {
 
     if (status !== undefined) {
       if (status === 'revoked') return res.status(400).json({ error: 'Use /users/:id/revoke instead.' });
+      if (status === 'completed') return res.status(400).json({ error: 'Use /users/:id/complete instead.' });
       update.status = status;
-      if (status === 'active') { update.revokedAt = null; update.revokedBy = null; }
+      if (status === 'active') { update.revokedAt = null; update.revokedBy = null; update.completedAt = null; update.completedBy = null; }
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select(safeFields);
@@ -69,7 +70,7 @@ router.patch('/users/:id/revoke', auth, requireAdmin, async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { status: 'revoked', revokedAt: new Date(), revokedBy: req.user.id },
+      { status: 'revoked', revokedAt: new Date(), revokedBy: req.user.id, completedAt: null, completedBy: null },
       { new: true }
     ).select(safeFields);
     if (!user) return res.status(404).json({ error: 'User not found.' });
@@ -78,11 +79,36 @@ router.patch('/users/:id/revoke', auth, requireAdmin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.patch('/users/:id/complete', auth, requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id)
+      return res.status(400).json({ error: 'You cannot mark your own account as completed.' });
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (user.role !== 'intern')
+      return res.status(400).json({ error: 'Only interns can be marked as completed.' });
+
+    user.status      = 'completed';
+    user.completedAt = new Date();
+    user.completedBy = req.user.id;
+    user.revokedAt    = null;
+    user.revokedBy    = null;
+    await user.save();
+
+    const safeUser = await User.findById(user._id).select(safeFields);
+    res.json(safeUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch('/users/:id/reactivate', auth, requireAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { status: 'active', revokedAt: null, revokedBy: null },
+      { status: 'active', revokedAt: null, revokedBy: null, completedAt: null, completedBy: null },
       { new: true }
     ).select(safeFields);
     if (!user) return res.status(404).json({ error: 'User not found.' });
