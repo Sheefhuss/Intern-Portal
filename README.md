@@ -140,8 +140,8 @@ Go to `http://localhost:5173` in your browser.
 
 ## Team
 
-Sheefa Hussain
-Mahiya Haider
+- Sheefa Hussain
+- Mahiya Haider
 
 ---
 
