@@ -31,12 +31,7 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={S.card}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>✉️ Invite an Intern</div>
-        <p style={{ fontSize: 12, color: COLORS.muted, marginBottom: 18 }}>
-          Add their email, domain, and batch here — no HR review, no Admin approval step.
-          We'll email them a one-time passcode; they use it under "Create Account" to set
-          their own password and activate access.
-        </p>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>✉️ Invite an Intern</div>
 
         <form onSubmit={submit} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
           <div>
