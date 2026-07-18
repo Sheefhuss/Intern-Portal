@@ -40,7 +40,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/auth', require('./routes/applications')); // application review + intern roster routes
+app.use('/api/auth', require('./routes/applications')); // active-intern roster routes
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/tasks', require('./routes/submissions')); // task submission lifecycle routes
 app.use('/api/admin', require('./routes/admin'));
@@ -55,14 +55,14 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
 
     if (role === 'hr') {
       const totalInterns = await User.countDocuments({ role: 'intern', status: 'active' });
-      const pendingReviews = await User.countDocuments({ role: 'intern', status: 'pending', emailVerified: true });
+      const awaitingActivation = await User.countDocuments({ role: 'intern', status: 'invited' });
       const internsWithBatch = await User.countDocuments({ role: 'intern', status: 'active', batch: { $ne: '' } });
       const onboardingPercent = totalInterns > 0
         ? Math.round((internsWithBatch / totalInterns) * 100) : 0;
 
       return res.json({
         count1: totalInterns,
-        count2: pendingReviews,
+        count2: awaitingActivation,
         count3: onboardingPercent,
         milestones: [],
       });
@@ -75,7 +75,7 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
 
       const serverHealth = [
         { metric: 'Active Interns', value: activeInterns, status: 'Good' },
-        { metric: 'Pending Approvals', value: await User.countDocuments({ role: 'intern', status: 'hr_reviewed' }), status: 'Warning' },
+        { metric: 'Awaiting Activation', value: await User.countDocuments({ role: 'intern', status: 'invited' }), status: 'Warning' },
         { metric: 'Unread Alerts', value: systemAlerts, status: systemAlerts > 0 ? 'Warning' : 'Good' },
         { metric: 'DB Status', value: 'Connected', status: 'Good' },
       ];

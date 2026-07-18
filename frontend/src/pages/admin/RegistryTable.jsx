@@ -21,7 +21,7 @@ export default function RegistryTable({
       <tbody>
         {users.map(u => {
           const batchOptions = batches.filter(b => b.domain === u.domain);
-          const sc = statusColor[u.status] || statusColor.pending;
+          const sc = statusColor[u.status] || statusColor.invited;
           const rc = roleColor[u.role] || roleColor.intern;
           const isActing = acting === u._id;
 
@@ -63,10 +63,9 @@ export default function RegistryTable({
               <td style={{ padding: "12px" }}>
                 <span style={{ background: sc.bg, color: sc.text, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
                   {u.status === "active" ? "Active"
-                    : u.status === "hr_reviewed" ? "HR Reviewed"
-                    : u.status === "rejected" ? "Rejected"
+                    : u.status === "invited" ? "Invited"
                     : u.status === "revoked" ? "Revoked"
-                    : "Pending"}
+                    : u.status}
                 </span>
               </td>
 

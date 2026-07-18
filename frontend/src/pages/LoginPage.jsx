@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
-import { DOMAINS } from "../data/database";
 
 const checkStrength = (pw) => {
   let score = 0;
@@ -24,13 +23,12 @@ export default function LoginPage({ onLoginSuccess }) {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+  const [notActivatedEmail, setNotActivatedEmail] = useState(null);
   const [resending, setResending] = useState(false);
 
-  const [applyName, setApplyName] = useState("");
-  const [applyEmail, setApplyEmail] = useState("");
-  const [applyPassword, setApplyPassword] = useState("");
-  const [applyDomain, setApplyDomain] = useState("");
+  const [suEmail, setSuEmail] = useState("");
+  const [suPasscode, setSuPasscode] = useState("");
+  const [suPassword, setSuPassword] = useState("");
   const [pwStrength, setPwStrength] = useState(0);
 
   const [forgotEmail, setForgotEmail] = useState("");
@@ -41,11 +39,6 @@ export default function LoginPage({ onLoginSuccess }) {
   useEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
-
-    if (params.get("verified") === "true") {
-      setSuccess("✅ Email verified! You can now log in.");
-      window.history.replaceState({}, "", "/");
-    }
 
     if (window.location.pathname === "/reset-password") {
       const token = params.get("token");
@@ -58,12 +51,15 @@ export default function LoginPage({ onLoginSuccess }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(""); setUnverifiedEmail(null); setLoading(true);
+    setError(""); setNotActivatedEmail(null); setLoading(true);
     try {
       const user = await AuthService.login(email, password);
       onLoginSuccess(user);
     } catch (err) {
-      if (err.code === "EMAIL_NOT_VERIFIED") setUnverifiedEmail(err.email);
+      if (err.code === "ACCOUNT_NOT_ACTIVATED") {
+        setNotActivatedEmail(err.email);
+        setSuEmail(err.email);
+      }
       setError(err.message);
     } finally {
       setLoading(false);
@@ -73,10 +69,11 @@ export default function LoginPage({ onLoginSuccess }) {
   const handleResend = async () => {
     setResending(true);
     try {
-      await AuthService.resendVerification(unverifiedEmail);
+      await AuthService.resendPasscode(notActivatedEmail);
       setError("");
-      setSuccess("Verification email resent! Check your inbox.");
-      setUnverifiedEmail(null);
+      setSuccess("Passcode resent! Check your email, then use it below to create your account.");
+      setNotActivatedEmail(null);
+      setTab("signup");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -84,16 +81,14 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   };
 
-  const handleApply = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
     setError(""); setSuccess(""); setLoading(true);
     try {
-      await AuthService.register({
-        name: applyName, email: applyEmail,
-        password: applyPassword, domain: applyDomain,
+      const user = await AuthService.signup({
+        email: suEmail, passcode: suPasscode, password: suPassword,
       });
-      setSuccess("Application submitted! Check your email to verify your address.");
-      setApplyName(""); setApplyEmail(""); setApplyPassword(""); setApplyDomain(""); setPwStrength(0);
+      onLoginSuccess(user);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -172,31 +167,32 @@ export default function LoginPage({ onLoginSuccess }) {
 
         {tab !== "resetPassword" && (
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
-            {[["login", "Sign In"], ["apply", "Apply"], ["forgot", "Reset Password"]].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); setError(""); setSuccess(""); setUnverifiedEmail(null); }}
+            {[["login", "Sign In"], ["signup", "Create Account"], ["forgot", "Reset Password"]].map(([id, label]) => (
+              <button key={id} onClick={() => { setTab(id); setError(""); setSuccess(""); setNotActivatedEmail(null); }}
                 style={{
                   flex: 1, padding: "8px 0", border: "none", borderRadius: 8,
-                  fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
                   background: tab === id ? "#fff" : "transparent",
                   color: tab === id ? "#7C3AED" : "#6B7280",
                   boxShadow: tab === id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
                   transition: "all 0.2s",
-                }}
-              >{label}</button>
+                }}>
+                {label}
+              </button>
             ))}
           </div>
         )}
 
         {error && (
-          <div style={{ background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 10, padding: "10px 14px", color: "#DC2626", fontSize: 13, marginBottom: 16 }}>
-            ⚠ {error}
-            {unverifiedEmail && (
+          <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 14px", color: "#DC2626", fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+            {error}
+            {notActivatedEmail && (
               <button onClick={handleResend} disabled={resending} style={{
                 display: "block", marginTop: 8, background: "#DC2626", color: "#fff",
                 border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12,
                 fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
               }}>
-                {resending ? "Resending…" : "Resend Verification Email"}
+                {resending ? "Resending…" : "Resend Passcode"}
               </button>
             )}
           </div>
@@ -230,41 +226,38 @@ export default function LoginPage({ onLoginSuccess }) {
               {loading ? "Signing in…" : "Sign In →"}
             </button>
             <p style={{ textAlign: "center", fontSize: 12, color: "#9CA3AF", marginTop: 16 }}>
-              No account?{" "}
-              <span onClick={() => setTab("apply")} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>Apply as Intern</span>
+              Got an invite email?{" "}
+              <span onClick={() => setTab("signup")} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>Create your account</span>
               {"  ·  "}
               <span onClick={() => setTab("forgot")} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>Forgot password?</span>
             </p>
           </form>
         )}
 
-        {tab === "apply" && (
-          <form onSubmit={handleApply}>
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Full Name</label>
-              <input type="text" style={inputStyle} placeholder="Your full name"
-                value={applyName} onChange={e => setApplyName(e.target.value)} required />
-            </div>
+        {tab === "signup" && (
+          <form onSubmit={handleSignup}>
+            <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 18, lineHeight: 1.6 }}>
+              Your admin adds your email to the portal and emails you a one-time passcode.
+              Enter it below to set your password and activate your account.
+            </p>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Email Address</label>
-              <input type="email" style={inputStyle} placeholder="your@email.com"
-                value={applyEmail} onChange={e => setApplyEmail(e.target.value)} required />
+              <input type="email" style={inputStyle} placeholder="the email your admin invited"
+                value={suEmail} onChange={e => setSuEmail(e.target.value)} required />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Domain / Interest</label>
-              <select style={{ ...inputStyle, cursor: "pointer" }}
-                value={applyDomain} onChange={e => setApplyDomain(e.target.value)} required>
-                <option value="">Select your domain…</option>
-                {DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <label style={labelStyle}>One-Time Passcode</label>
+              <input type="text" style={inputStyle} placeholder="6-digit code from your email"
+                value={suPasscode} onChange={e => setSuPasscode(e.target.value)}
+                inputMode="numeric" maxLength={6} required />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={labelStyle}>Password</label>
+              <label style={labelStyle}>Create Password</label>
               <input type="password" style={inputStyle} placeholder="Min 8 chars, 1 uppercase, 1 number, 1 symbol"
-                value={applyPassword}
-                onChange={e => { setApplyPassword(e.target.value); setPwStrength(checkStrength(e.target.value)); }}
+                value={suPassword}
+                onChange={e => { setSuPassword(e.target.value); setPwStrength(checkStrength(e.target.value)); }}
                 minLength={8} required />
-              {applyPassword && (
+              {suPassword && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
                     {[1, 2, 3, 4].map(i => (
@@ -282,22 +275,27 @@ export default function LoginPage({ onLoginSuccess }) {
               )}
             </div>
             <button type="submit" disabled={loading || pwStrength < 4} style={btnStyle(loading || pwStrength < 4)}>
-              {loading ? "Submitting…" : "Submit Application →"}
+              {loading ? "Creating account…" : "Create Account →"}
             </button>
             {pwStrength > 0 && pwStrength < 4 && (
               <p style={{ fontSize: 11, color: "#F59E0B", textAlign: "center", marginTop: 8 }}>
                 Password needs uppercase, number, and special character
               </p>
             )}
-            <div style={{ marginTop: 14, padding: "10px 14px", background: "#F5F3FF", borderRadius: 10, border: "1px solid #DDD6FE" }}>
-              <div style={{ fontSize: 11, color: "#7C3AED", fontWeight: 600, marginBottom: 3 }}>How it works</div>
-              <div style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.7 }}>
-                1. Submit this form<br />
-                2. Verify your email (check inbox)<br />
-                3. HR reviews your application<br />
-                4. Admin approves → you get access
-              </div>
-            </div>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#9CA3AF", marginTop: 14 }}>
+              Didn't get a passcode, or it expired?{" "}
+              <span onClick={async () => {
+                if (!suEmail) return setError("Enter your email above first.");
+                setResending(true);
+                try {
+                  await AuthService.resendPasscode(suEmail);
+                  setError(""); setSuccess("Passcode resent! Check your email.");
+                } catch (err) { setError(err.message); }
+                finally { setResending(false); }
+              }} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>
+                {resending ? "Resending…" : "Resend passcode"}
+              </span>
+            </p>
           </form>
         )}
 

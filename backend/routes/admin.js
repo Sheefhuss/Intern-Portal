@@ -1,9 +1,13 @@
 const express = require('express');
 const router  = express.Router();
+const crypto  = require('crypto');
 const User    = require('../models/User');
 const Batch   = require('../models/Batch');
 const Task    = require('../models/Task');
 const auth    = require('../middleware/authMiddleware');
+const mailer  = require('../utils/mailer');
+
+const generatePasscode = () => crypto.randomInt(100000, 1000000).toString(); // 6 digits
 
 const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required.' });
@@ -15,7 +19,7 @@ const requireManager = (req, res, next) => {
   next();
 };
 
-const safeFields = '-password -resetPasswordToken -resetPasswordExpires -emailVerifyToken -emailVerifyExpires';
+const safeFields = '-password -resetPasswordToken -resetPasswordExpires -otp -otpExpires';
 router.get('/users', auth, requireManager, async (req, res) => {
   try {
     const { status, role } = req.query;
@@ -83,6 +87,67 @@ router.patch('/users/:id/reactivate', auth, requireAdmin, async (req, res) => {
     ).select(safeFields);
     if (!user) return res.status(404).json({ error: 'User not found.' });
     res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/interns/invite', auth, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, domain, batch } = req.body;
+    if (!name?.trim() || !email?.trim() || !domain?.trim())
+      return res.status(400).json({ error: 'Name, email, and domain are required.' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const exists = await User.findOne({ email: normalizedEmail });
+    if (exists) return res.status(409).json({ error: 'An account with this email already exists.' });
+
+    const passcode = generatePasscode();
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      role: 'intern',
+      status: 'invited',
+      domain: domain.trim(),
+      batch: batch?.trim() || '',
+      invitedBy: req.user.id,
+      otp: passcode,
+      otpExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    try {
+      await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
+    } catch (mailErr) {
+      console.error('Mail error:', mailErr.message);
+    }
+
+    const safeUser = await User.findById(user._id).select(safeFields);
+    res.status(201).json({ message: 'Invitation sent.', user: safeUser, passcode });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/interns/:id/resend-passcode', auth, requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (user.status !== 'invited')
+      return res.status(400).json({ error: 'This account is not awaiting activation.' });
+
+    const passcode = generatePasscode();
+    user.otp        = passcode;
+    user.otpExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await user.save();
+
+    try {
+      await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
+    } catch (mailErr) {
+      console.error('Mail error:', mailErr.message);
+    }
+
+    res.json({ message: 'Passcode resent.', passcode });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -174,7 +239,6 @@ router.delete('/batches/:id', auth, requireAdmin, async (req, res) => {
   }
 });
 
-// Assign an intern to a batch
 router.patch('/batches/:id/assign', auth, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.body;

@@ -4,15 +4,18 @@ const SESSION_KEY = "session";
 
 export const AuthService = {
 
-  register: async ({ name, email, password, domain }) => {
-    const res = await fetch(`${API}/auth/register`, {
+  signup: async ({ email, passcode, password }) => {
+    const res = await fetch(`${API}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, domain }),
+      body: JSON.stringify({ email, passcode, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Registration failed.");
-    return data;
+    if (!res.ok) throw new Error(data.error || "Account creation failed.");
+    localStorage.setItem("token", data.token);
+    const session = { email: data.email, role: data.role, name: data.name };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    return session;
   },
 
   login: async (email, password) => {
@@ -34,8 +37,8 @@ export const AuthService = {
     return session;
   },
 
-  resendVerification: async (email) => {
-    const res = await fetch(`${API}/auth/resend-verification`, {
+  resendPasscode: async (email) => {
+    const res = await fetch(`${API}/auth/resend-passcode`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),

@@ -11,9 +11,7 @@ export const roleColor = {
 
 export const statusColor = {
   active:      { bg: "#D1FAE5", text: "#059669" },
-  pending:     { bg: "#FEF3C7", text: "#D97706" },
-  hr_reviewed: { bg: "#DBEAFE", text: "#2563EB" },
-  rejected:    { bg: "#FEE2E2", text: "#DC2626" },
+  invited:     { bg: "#DBEAFE", text: "#2563EB" },
   revoked:     { bg: "#F3F4F6", text: "#6B7280" },
 };
 

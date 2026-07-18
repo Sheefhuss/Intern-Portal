@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import { S, COLORS } from "../utils/theme";
 
-import { emptySlotForm, emptyRequestForm, btnPrimary } from "./meetings/constants";
+import { emptySlotForm, emptyRequestForm, btnPrimary, toISOFromLocal } from "./meetings/constants";
 import MeetingCard from "./meetings/MeetingCard";
 import RequestCard from "./meetings/RequestCard";
 import { InternSlotCard, BookedCard, MyRequestCard } from "./meetings/InternCards";
@@ -54,7 +54,6 @@ export default function MeetingsPage({ session }) {
     m.createdBy?._id === session?.id || m.createdBy === session?.id
   );
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleCreateSlot = async () => {
     if (!slotForm.title.trim())    return alert("Title is required.");
@@ -68,7 +67,8 @@ export default function MeetingsPage({ session }) {
     setPosting(true);
     try {
       const newMeeting = await AuthService.apiFetch("/meetings/slots", {
-        method: "POST", body: JSON.stringify(slotForm),
+        method: "POST",
+        body: JSON.stringify({ ...slotForm, scheduledAt: toISOFromLocal(slotForm.scheduledAt) }),
       });
       setMeetings([newMeeting, ...meetings]);
       setSlotForm(emptySlotForm);
@@ -102,7 +102,8 @@ export default function MeetingsPage({ session }) {
     setRequesting(true);
     try {
       const newReq = await AuthService.apiFetch("/meetings/requests", {
-        method: "POST", body: JSON.stringify(reqForm),
+        method: "POST",
+        body: JSON.stringify({ ...reqForm, preferredAt: toISOFromLocal(reqForm.preferredAt) }),
       });
       setMeetings([...meetings, newReq]);
       setReqForm(emptyRequestForm);
@@ -115,7 +116,8 @@ export default function MeetingsPage({ session }) {
     setActing(approveTarget._id);
     try {
       const updated = await AuthService.apiFetch(`/meetings/${approveTarget._id}/approve`, {
-        method: "PATCH", body: JSON.stringify(approveForm),
+        method: "PATCH",
+        body: JSON.stringify({ ...approveForm, scheduledAt: toISOFromLocal(approveForm.scheduledAt) }),
       });
       setMeetings(meetings.map(m => m._id === approveTarget._id ? { ...m, ...updated } : m));
       setApproveTarget(null);
@@ -144,7 +146,6 @@ export default function MeetingsPage({ session }) {
     finally { setActing(null); }
   };
 
-  // ── Tabs ────────────────────────────────────────────────────────────────────
 
   const tabs = isAdmin || isHR
     ? ["slots", "requests"]
@@ -158,7 +159,6 @@ export default function MeetingsPage({ session }) {
     "my-requests": `My Requests (${myRequests.length})`,
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, animation: "fadeIn 0.4s ease" }}>

@@ -5,7 +5,6 @@ const jwt       = require('jsonwebtoken');
 const crypto    = require('crypto');
 const rateLimit = require('express-rate-limit');
 const User      = require('../models/User');
-const Notification = require('../models/Notification');
 const auth      = require('../middleware/authMiddleware');
 const mailer    = require('../utils/mailer');
 
@@ -17,16 +16,26 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const registerLimiter = rateLimit({
+const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { error: 'Too many registration attempts. Try again in 1 hour.' },
+  max: 10,
+  message: { error: 'Too many attempts. Try again in 1 hour.' },
 });
 
 const generateToken = () => crypto.randomBytes(32).toString('hex');
+const generatePasscode = () => crypto.randomInt(100000, 1000000).toString(); // 6 digits
 
 const passwordStrong = (pw) => {
   return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",.<>?]).{8,}$/.test(pw);
+};
+
+const issueSession = (user) => {
+  const token = jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  return { token, role: user.role, name: user.name, email: user.email };
 };
 
 router.get('/me', auth, async (req, res) => {
@@ -50,101 +59,69 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-router.post('/register', registerLimiter, async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   try {
-    const { name, email, password, domain } = req.body;
+    const { email, passcode, password } = req.body;
 
-    if (!name || !email || !password || !domain)
-      return res.status(400).json({ error: 'All fields are required.' });
+    if (!email || !passcode || !password)
+      return res.status(400).json({ error: 'Email, passcode, and password are all required.' });
 
     if (!passwordStrong(password))
       return res.status(400).json({
         error: 'Password must be 8+ characters with 1 uppercase, 1 number, and 1 special character.',
       });
 
-    const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(409).json({ error: 'Email already registered.' });
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user)
+      return res.status(404).json({ error: 'No invitation found for this email. Ask your admin to add you first.' });
 
-    const hashed       = await bcrypt.hash(password, 12);
-    const verifyToken  = generateToken();
-    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    if (user.status === 'active')
+      return res.status(409).json({ error: 'This account already exists. Try signing in instead.' });
 
-    await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashed,
-      domain,
-      role:               'intern',
-      status:             'pending',
-      emailVerified:      false,
-      emailVerifyToken:   verifyToken,
-      emailVerifyExpires: verifyExpires,
-    });
+    if (user.status === 'revoked')
+      return res.status(403).json({ error: 'This account has been revoked. Contact an administrator.' });
+
+    if (!user.otp || !user.otpExpires || user.otpExpires < new Date())
+      return res.status(400).json({ error: 'Your passcode has expired. Ask your admin to resend it.' });
+
+    if (user.otp !== String(passcode).trim())
+      return res.status(400).json({ error: 'Incorrect passcode.' });
+
+    user.password      = await bcrypt.hash(password, 12);
+    user.status        = 'active';
+    user.emailVerified = true;
+    user.otp           = null;
+    user.otpExpires    = null;
+    await user.save();
+
+    res.status(201).json({ message: 'Account created!', ...issueSession(user) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/resend-passcode', signupLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ error: 'No invitation found for this email.' });
+    if (user.status !== 'invited')
+      return res.status(400).json({ error: 'This account is not awaiting activation.' });
+
+    const passcode = generatePasscode();
+    user.otp        = passcode;
+    user.otpExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await user.save();
 
     try {
-      await mailer.sendVerificationEmail({ to: email, name, token: verifyToken });
+      await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
     } catch (mailErr) {
       console.error('Mail error:', mailErr.message);
     }
 
-    res.status(201).json({
-      message: 'Application submitted! Please check your email to verify your address.',
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/verify-email', async (req, res) => {
-  try {
-    const { token } = req.query;
-    if (!token) return res.status(400).json({ error: 'Invalid verification link.' });
-
-    const user = await User.findOne({
-      emailVerifyToken:   token,
-      emailVerifyExpires: { $gt: new Date() },
-    });
-
-    if (!user) return res.status(400).json({ error: 'Verification link is invalid or has expired.' });
-
-    user.emailVerified      = true;
-    user.emailVerifyToken   = null;
-    user.emailVerifyExpires = null;
-    await user.save();
-
-    try {
-      await Notification.create({
-        role: 'hr',
-        type: 'system',
-        text: `New internship application from ${user.name} is awaiting review.`,
-      });
-    } catch (notifyErr) {
-      console.error('Application notification failed:', notifyErr.message);
-    }
-
-    res.redirect(`${process.env.FRONTEND_URL}?verified=true`);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/resend-verification', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-
-    if (!user) return res.status(404).json({ error: 'No account found.' });
-    if (user.emailVerified) return res.status(400).json({ error: 'Email already verified.' });
-
-    const verifyToken   = generateToken();
-    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    user.emailVerifyToken   = verifyToken;
-    user.emailVerifyExpires = verifyExpires;
-    await user.save();
-
-    await mailer.sendVerificationEmail({ to: user.email, name: user.name, token: verifyToken });
-    res.json({ message: 'Verification email resent.' });
+    res.json({ message: 'Passcode resent. Check your email.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -159,15 +136,10 @@ router.post('/login', loginLimiter, async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(404).json({ error: 'No account found with this email.' });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Incorrect password.' });
-
-    const isStaff = user.role === 'admin' || user.role === 'hr';
-
-    if (!isStaff && !user.emailVerified) {
+    if (user.status === 'invited') {
       return res.status(403).json({
-        error: 'Please verify your email before logging in.',
-        code:  'EMAIL_NOT_VERIFIED',
+        error: 'Your account is ready to be activated. Use the passcode emailed to you under "Create Account".',
+        code:  'ACCOUNT_NOT_ACTIVATED',
         email: user.email,
       });
     }
@@ -176,22 +148,10 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(403).json({ error: 'Your access has been revoked. Contact an administrator.' });
     }
 
-    if (user.role === 'intern' && user.status !== 'active') {
-      const messages = {
-        pending:     'Your application is under HR review.',
-        hr_reviewed: 'Your application is pending Admin approval.',
-        rejected:    'Your application was not approved. Contact HR for details.',
-      };
-      return res.status(403).json({ error: messages[user.status] || 'Account not active.' });
-    }
+    const match = await bcrypt.compare(password, user.password || '');
+    if (!match) return res.status(401).json({ error: 'Incorrect password.' });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({ token, role: user.role, name: user.name, email: user.email });
+    res.json(issueSession(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -202,7 +162,8 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email: email.toLowerCase() });
 
-    if (!user) return res.json({ message: 'If that email exists, a reset link has been sent.' });
+    if (!user || user.status !== 'active')
+      return res.json({ message: 'If that email exists, a reset link has been sent.' });
 
     const resetToken   = generateToken();
     const resetExpires = new Date(Date.now() + 60 * 60 * 1000);

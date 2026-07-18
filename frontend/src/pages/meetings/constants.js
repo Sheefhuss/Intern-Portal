@@ -59,6 +59,7 @@ export const emptySlotForm = {
 export const emptyRequestForm = {
   title: "", requestNote: "", preferredAt: "",
 };
+export const toISOFromLocal = (localStr) => localStr ? new Date(localStr).toISOString() : null;
 
 export const fmt = (dt) => dt
   ? new Date(dt).toLocaleString("en-IN", {

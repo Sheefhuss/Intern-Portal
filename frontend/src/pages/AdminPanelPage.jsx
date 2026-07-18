@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AuthService } from "../auth/authService";
-import ApprovalQueue from "./admin/ApprovalQueue";
+import InviteIntern from "./admin/InviteIntern";
 import FullRegistry from "./admin/FullRegistry";
 import BatchesTab from "./admin/BatchesTab";
 
 export default function AdminPanelPage() {
-  const [tab, setTab] = useState("queue");
-  const [reviewed, setReviewed] = useState([]);
+  const [tab, setTab] = useState("invite");
   const [registry, setRegistry] = useState([]);
   const [batches, setBatches]   = useState([]);
   const [allInterns, setAllInterns] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [acting, setActing]     = useState(null);
-  const [batchInputs, setBatchInputs] = useState({});
   const [groupBy, setGroupBy]   = useState("none");
 
-  // batch tab state
+  const [inviting, setInviting]   = useState(false);
+  const [resending, setResending] = useState(null);
+
   const [newBatchName, setNewBatchName]       = useState("");
   const [newBatchDomains, setNewBatchDomains] = useState([]);
   const [editingBatch, setEditingBatch]     = useState(null);
@@ -26,12 +26,10 @@ export default function AdminPanelPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [rev, reg, bat] = await Promise.all([
-        AuthService.apiFetch("/auth/applications/reviewed"),
+      const [reg, bat] = await Promise.all([
         AuthService.apiFetch("/admin/registry"),
         AuthService.apiFetch("/admin/batches"),
       ]);
-      setReviewed(rev);
       setRegistry(reg);
       setBatches(bat);
       setAllInterns(reg.filter(u => u.role === "intern"));
@@ -44,23 +42,35 @@ export default function AdminPanelPage() {
 
   useEffect(() => { load(); }, []);
 
-  // ── Approval queue actions ──────────────────────────────────────
-  const decide = async (id, decision) => {
-    setActing(id + decision);
+  const invite = async ({ name, email, domain, batch }) => {
+    setInviting(true);
     try {
-      await AuthService.apiFetch(`/auth/applications/${id}/decision`, {
-        method: "PATCH",
-        body: JSON.stringify({ decision, batch: batchInputs[id] || "" }),
+      const result = await AuthService.apiFetch("/admin/interns/invite", {
+        method: "POST",
+        body: JSON.stringify({ name, email, domain, batch }),
       });
       await load();
+      return result;
     } catch (err) {
       alert(err.message);
+      return null;
     } finally {
-      setActing(null);
+      setInviting(false);
     }
   };
 
-  // ── Registry actions ────────────────────────────────────────────
+  const resendPasscode = async (id) => {
+    setResending(id);
+    try {
+      await AuthService.apiFetch(`/admin/interns/${id}/resend-passcode`, { method: "PATCH" });
+      alert("Passcode resent.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setResending(null);
+    }
+  };
+
   const updateUser = async (id, patch) => {
     setActing(id);
     try {
@@ -114,7 +124,6 @@ export default function AdminPanelPage() {
     }
   };
 
-  // ── Batch actions ───────────────────────────────────────────────
   const createBatch = async () => {
     if (!newBatchName.trim() || newBatchDomains.length === 0) return alert("Batch name and at least one domain are required.");
     setCreatingBatch(true);
@@ -194,7 +203,6 @@ export default function AdminPanelPage() {
     }
   };
 
-  // ── Derived data ─────────────────────────────────────────────────
   const domains = useMemo(
     () => [...new Set(registry.map(u => u.domain).filter(Boolean))],
     [registry]
@@ -203,9 +211,7 @@ export default function AdminPanelPage() {
   const activeInterns   = registry.filter(u => u.role === "intern" && u.status === "active");
   const hrStaff         = registry.filter(u => u.role === "hr" && u.status !== "revoked");
   const adminStaff      = registry.filter(u => u.role === "admin" && u.status !== "revoked");
-  const inactivePending = registry.filter(u =>
-    u.role === "intern" && ["pending", "hr_reviewed", "rejected"].includes(u.status)
-  );
+  const invitedInterns  = registry.filter(u => u.role === "intern" && u.status === "invited");
   const revokedUsers    = registry.filter(u => u.status === "revoked");
 
   if (loading) return <div style={{ color: "#6B7280", padding: 20 }}>Loading…</div>;
@@ -214,7 +220,7 @@ export default function AdminPanelPage() {
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {[
-          ["queue", `Approval Queue (${reviewed.length})`],
+          ["invite", `Invite Intern (${invitedInterns.length} pending)`],
           ["registry", `Full Registry (${registry.length})`],
           ["batches", `Batches (${batches.length})`],
         ].map(([id, label]) => (
@@ -228,13 +234,14 @@ export default function AdminPanelPage() {
         ))}
       </div>
 
-      {tab === "queue" && (
-        <ApprovalQueue
-          reviewed={reviewed}
-          batchInputs={batchInputs}
-          setBatchInputs={setBatchInputs}
-          decide={decide}
-          acting={acting}
+      {tab === "invite" && (
+        <InviteIntern
+          invited={invitedInterns}
+          batches={batches}
+          inviting={inviting}
+          invite={invite}
+          resending={resending}
+          resendPasscode={resendPasscode}
         />
       )}
 
@@ -245,7 +252,7 @@ export default function AdminPanelPage() {
           activeInterns={activeInterns}
           hrStaff={hrStaff}
           adminStaff={adminStaff}
-          inactivePending={inactivePending}
+          invitedInterns={invitedInterns}
           revokedUsers={revokedUsers}
           batches={batches}
           updateUser={updateUser}
