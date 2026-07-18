@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import InternsPage from "./pages/InternsPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import { AuthService } from "./auth/authService";
-import { COLORS } from "./utils/theme";
 import TasksPage from "./pages/TasksPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import MeetingsPage from "./pages/MeetingsPage";
@@ -36,7 +35,9 @@ export default function App() {
     try {
       const token = localStorage.getItem("token");
       if (token) currentUserId = JSON.parse(atob(token.split('.')[1])).id;
-    } catch(e) {}
+    } catch (err) {
+      console.error("Failed to decode auth token:", err);
+    }
   }
 
   useEffect(() => { setMounted(true); }, []);
@@ -132,14 +133,18 @@ export default function App() {
     setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
     try {
       await AuthService.apiFetch(`/notifications/${id}/read`, { method: "PUT" });
-    } catch {}
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    }
   };
 
   const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
     try {
       await AuthService.apiFetch("/notifications/read-all", { method: "PUT" });
-    } catch {}
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+    }
   };
 
   const navigateTo = (pageId, role) => {

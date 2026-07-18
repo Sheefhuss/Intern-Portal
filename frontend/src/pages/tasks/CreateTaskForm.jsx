@@ -1,4 +1,3 @@
-import React from "react";
 import { S } from "../../utils/theme";
 import { inputStyle, labelStyle } from "../../utils/tasksConstants";
 

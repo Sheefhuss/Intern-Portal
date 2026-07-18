@@ -2,7 +2,7 @@ const { sendBrevoEmail } = require('./brevoMailer');
 
    const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
-async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl }) {
+async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl, downloadUrl }) {
   const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
@@ -46,6 +46,10 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
                 </td>
               </tr>
             </table>
+            <table style="width:100%;margin-top:28px;"><tr>
+              ${downloadUrl ? `<td style="padding-right:8px;"><a href="${downloadUrl}" style="display:block;text-align:center;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:#fff;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px">⬇ Download PDF</a></td>` : ''}
+              ${verifyUrl ? `<td style="padding-left:${downloadUrl ? '8px' : '0'};"><a href="${verifyUrl}" style="display:block;text-align:center;background:#fff;color:#7C3AED;border:1.5px solid #C4B5FD;padding:11.5px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px">View Certificate</a></td>` : ''}
+            </tr></table>
           </div>
           <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
         </div>

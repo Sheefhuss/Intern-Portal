@@ -1,4 +1,3 @@
-import React from "react";
 import { S } from "../../utils/theme";
 
 export default function TaskHeaderBar({ isManager, taskCount, filter, setFilter, showForm, setShowForm, success }) {

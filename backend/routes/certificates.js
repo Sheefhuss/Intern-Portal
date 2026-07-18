@@ -5,6 +5,7 @@ const auth = require('../middleware/authMiddleware');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const puppeteer = require('puppeteer');
 
 const LOGO_PATH = path.join(__dirname, '../../frontend/public/enginow.png');
 let LOGO_B64 = '';
@@ -119,12 +120,52 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
   </div>
   <div class="actions">
     <button class="btn ghost" onclick="window.close()">Close</button>
-    <button class="btn primary" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <a class="btn primary" href="/api/certificates/${cert.certificateId}/download" style="text-decoration:none;display:inline-block">⬇ Download PDF</a>
   </div>
 </div>
 </body>
 </html>`;
 };
+
+let browserPromise = null;
+const getBrowser = () => {
+  if (!browserPromise) {
+    browserPromise = puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  }
+  return browserPromise;
+};
+
+const renderCertificatePdf = async (cert) => {
+  const html = await renderCertificateHtml(cert);
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1000, height: 900 });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    const box = await page.$eval('.cert-outer', el => {
+      const rect = el.getBoundingClientRect();
+      return { width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
+    });
+
+    return await page.pdf({
+      width: `${box.width}px`,
+      height: `${box.height}px`,
+      printBackground: true,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
+  } finally {
+    await page.close();
+  }
+};
+
+process.on('exit', () => {
+  if (browserPromise) browserPromise.then(b => b.close()).catch(() => {});
+});
+
 router.get('/logo.png', (req, res) => {
   if (!fs.existsSync(LOGO_PATH)) return res.status(404).end();
   res.set('Content-Type', 'image/png');
@@ -157,6 +198,24 @@ router.get('/my', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.get('/:certificateId/download', async (req, res) => {
+  try {
+    const certificate = await Certificate
+      .findOne({ certificateId: req.params.certificateId })
+      .populate('student', 'name');
+
+    if (!certificate) return res.status(404).send('Certificate not found.');
+
+    const pdfBuffer = await renderCertificatePdf(certificate);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="certificate-${certificate.certificateId}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Certificate PDF generation failed:', err);
+    res.status(500).send('Error generating certificate PDF.');
+  }
+});
+
 router.get('/:certificateId/view', async (req, res) => {
   try {
     const certificate = await Certificate

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 
 const checkStrength = (pw) => {
@@ -6,7 +6,7 @@ const checkStrength = (pw) => {
   if (pw.length >= 8) score++;
   if (/[A-Z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
-  if (/[!@#$%^&*()_+\-=\[\]{}|;':",.<>?]/.test(pw)) score++;
+  if (/[!@#$%^&*()_+\-=[\]{}|;':",.<>?]/.test(pw)) score++;
   return score;
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import { S } from "../utils/theme";
 import { emptyForm } from "../utils/tasksConstants";
@@ -213,7 +213,8 @@ export default function TasksPage({ session }) {
     try {
       const rows = await AuthService.apiFetch(`/tasks/${trackingTask._id}/submissions`);
       setTrackingRows(rows);
-    } catch {
+    } catch (err) {
+      console.error("Failed to refresh submission rows:", err);
     }
   };
 

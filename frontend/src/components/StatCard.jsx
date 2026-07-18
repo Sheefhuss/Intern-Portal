@@ -1,4 +1,3 @@
-import React from "react";
 import { S, COLORS } from "../utils/theme";
 
 export default function StatCard({ label, value, accent }) {

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { S } from "../utils/theme";
 
-export default function SupportPage({ session }) {
+export default function SupportPage() {
   const [formData, setFormData] = useState({ subject: "", message: "" });
 
   const handleSubmit = (e) => {

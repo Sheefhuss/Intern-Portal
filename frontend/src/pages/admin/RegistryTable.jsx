@@ -1,4 +1,3 @@
-import React from "react";
 import { COLORS } from "../../utils/theme";
 import { domainColor, roleColor, statusColor, pillSelect } from "../../utils/adminConstants";
 

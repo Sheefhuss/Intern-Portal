@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import AnnouncementBox from "./interns/AnnouncementBox";
 import ActiveInternsTable from "./interns/ActiveInternsTable";

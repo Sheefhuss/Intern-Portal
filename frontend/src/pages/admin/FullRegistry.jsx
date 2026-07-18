@@ -1,4 +1,3 @@
-import React from "react";
 import { COLORS, S } from "../../utils/theme";
 import { pillSelect } from "../../utils/adminConstants";
 import { groupUsers } from "../../utils/groupUsers";

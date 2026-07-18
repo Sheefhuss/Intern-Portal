@@ -54,6 +54,7 @@ const maybeIssueCertificate = async (internId) => {
       certificateId: certificate.certificateId,
       issuedAt: certificate.issuedAt || certificate.createdAt,
       verifyUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/certificates/${certificate.certificateId}/view`,
+      downloadUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/api/certificates/${certificate.certificateId}/download`,
     });
     certificate.emailSent = true;
     await certificate.save();

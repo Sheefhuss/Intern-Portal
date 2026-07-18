@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import InviteIntern from "./admin/InviteIntern";
 import FullRegistry from "./admin/FullRegistry";

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { S } from "../../utils/theme";
 import { statusColors, inputStyle } from "../../utils/tasksConstants";
 

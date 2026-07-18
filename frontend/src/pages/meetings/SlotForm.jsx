@@ -1,7 +1,7 @@
 import { S } from "../../utils/theme";
 import { inputStyle, labelStyle, btnPrimary, btnGhost } from "./constants";
 
-export default function SlotForm({ slotForm, setSlotForm, posting, onSubmit, onCancel, interns, emptySlotForm }) {
+export default function SlotForm({ slotForm, setSlotForm, posting, onSubmit, onCancel, interns }) {
   return (
     <div style={{ ...S.card, padding: 24 }}>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: "#111827" }}>Create Meeting Slot</div>

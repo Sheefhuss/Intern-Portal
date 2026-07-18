@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
-import { S, COLORS } from "../utils/theme";
+import { S } from "../utils/theme";
 
 const statusColors = {
   pending:   { bg: "#FEF3C7", text: "#D97706", label: "Pending" },

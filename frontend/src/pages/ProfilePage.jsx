@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import { S } from "../utils/theme";
 
-export default function ProfilePage({ session }) {
+export default function ProfilePage() {
   const [profile, setProfile] = useState({
     name: "",
     email: "",

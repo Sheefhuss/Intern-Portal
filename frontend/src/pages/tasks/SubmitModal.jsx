@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export default function SubmitModal({ task, submitting, onConfirm, onClose }) {
   const [url, setUrl] = useState("");

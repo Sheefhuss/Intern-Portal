@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import { S, COLORS } from "../utils/theme";
 
@@ -29,20 +29,20 @@ export default function MeetingsPage({ session }) {
   const [approveForm, setApproveForm]   = useState({ approvalLink: "", scheduledAt: "" });
   const [interns, setInterns]           = useState([]);
 
-  useEffect(() => {
-    load();
-    if (isAdmin) {
-      AuthService.apiFetch("/admin/users?role=intern&status=active")
-        .then(setInterns).catch(() => setInterns([]));
-    }
-  }, []);
-
   const load = () => {
     setLoading(true);
     AuthService.apiFetch("/meetings")
       .then(setMeetings).catch(() => setMeetings([]))
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    load();
+    if (isAdmin) {
+      AuthService.apiFetch("/admin/users?role=intern&status=active")
+        .then(setInterns).catch(() => setInterns([]));
+    }
+  }, [isAdmin]);
 
   const slots          = meetings.filter(m => m.type === "slot");
   const requests       = meetings.filter(m => m.type === "request");

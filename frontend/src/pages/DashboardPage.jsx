@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import StatCard from "../components/StatCard";
-import { COLORS, S } from "../utils/theme";
+import { S } from "../utils/theme";
 import { AuthService } from "../auth/authService";
 
 const actionButtonStyle = {

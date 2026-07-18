@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { COLORS, S } from "../../utils/theme";
 import { domainColor } from "../../utils/adminConstants";
 import { DOMAINS } from "../../data/database";
