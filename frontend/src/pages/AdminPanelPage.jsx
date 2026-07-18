@@ -115,6 +115,19 @@ export default function AdminPanelPage() {
     }
   };
 
+  const completeUser = async (id, name) => {
+    if (!window.confirm(`Mark ${name}'s internship as completed? They'll move to Past Interns and won't be able to log in as an active intern.`)) return;
+    setActing(id);
+    try {
+      const updated = await AuthService.apiFetch(`/admin/users/${id}/complete`, { method: "PATCH" });
+      setRegistry(prev => prev.map(u => u._id === id ? updated : u));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setActing(null);
+    }
+  };
+
   const deleteUser = async (id, name) => {
     if (!window.confirm(`Permanently delete ${name}? This cannot be undone. Their tasks will be kept but unlinked.`)) return;
     setActing(id);
@@ -214,6 +227,7 @@ export default function AdminPanelPage() {
   const adminStaff      = registry.filter(u => u.role === "admin" && u.status !== "revoked");
   const invitedInterns  = registry.filter(u => u.role === "intern" && u.status === "invited");
   const revokedUsers    = registry.filter(u => u.status === "revoked");
+  const completedInterns = registry.filter(u => u.role === "intern" && u.status === "completed");
 
   if (loading) return <div style={{ color: "#6B7280", padding: 20 }}>Loading…</div>;
 
@@ -255,11 +269,13 @@ export default function AdminPanelPage() {
           adminStaff={adminStaff}
           inactivePending={invitedInterns}
           revokedUsers={revokedUsers}
+          completedInterns={completedInterns}
           batches={batches}
           updateUser={updateUser}
           revokeUser={revokeUser}
           reactivateUser={reactivateUser}
           deleteUser={deleteUser}
+          completeUser={completeUser}
           acting={acting}
         />
       )}

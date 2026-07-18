@@ -13,6 +13,7 @@ export const statusColor = {
   active:      { bg: "#D1FAE5", text: "#059669" },
   invited:     { bg: "#DBEAFE", text: "#2563EB" },
   revoked:     { bg: "#F3F4F6", text: "#6B7280" },
+  completed:   { bg: "#E0E7FF", text: "#4338CA" },
 };
 
 export const pillSelect = {

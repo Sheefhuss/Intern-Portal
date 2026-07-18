@@ -44,10 +44,10 @@ function GroupedSection({ users, groupBy, tableProps, ...tableFlags }) {
 
 export default function FullRegistry({
   groupBy, setGroupBy,
-  activeInterns, hrStaff, adminStaff, inactivePending, revokedUsers,
-  batches, updateUser, revokeUser, reactivateUser, deleteUser, acting,
+  activeInterns, hrStaff, adminStaff, inactivePending, revokedUsers, completedInterns,
+  batches, updateUser, revokeUser, reactivateUser, deleteUser, completeUser, acting,
 }) {
-  const tableProps = { batches, updateUser, revokeUser, reactivateUser, deleteUser, acting };
+  const tableProps = { batches, updateUser, revokeUser, reactivateUser, deleteUser, completeUser, acting };
 
   return (
     <div style={S.card}>
@@ -70,7 +70,7 @@ export default function FullRegistry({
         <SectionHeader dot="#10B981" title={`Active Interns (${activeInterns.length})`} />
         {activeInterns.length === 0
           ? <Empty text="No active interns yet." />
-          : <GroupedSection users={activeInterns} groupBy={groupBy} tableProps={tableProps} showBatchEditor showRoleEditor showRevoke />}
+          : <GroupedSection users={activeInterns} groupBy={groupBy} tableProps={tableProps} showBatchEditor showRoleEditor showRevoke showComplete />}
       </div>
 
       <div style={{ marginTop: 28 }}>
@@ -92,6 +92,13 @@ export default function FullRegistry({
         {inactivePending.length === 0
           ? <Empty text="No users found in this category." />
           : <GroupedSection users={inactivePending} groupBy={groupBy} tableProps={tableProps} />}
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <SectionHeader dot="#4338CA" title={`Completed / Past Interns (${completedInterns.length})`} color="#4338CA" />
+        {completedInterns.length === 0
+          ? <Empty text="No completed interns yet." />
+          : <GroupedSection users={completedInterns} groupBy={groupBy} tableProps={tableProps} showReactivate />}
       </div>
 
       <div style={{ marginTop: 28 }}>

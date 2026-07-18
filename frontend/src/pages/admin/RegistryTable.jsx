@@ -3,8 +3,8 @@ import { COLORS } from "../../utils/theme";
 import { domainColor, roleColor, statusColor, pillSelect } from "../../utils/adminConstants";
 
 export default function RegistryTable({
-  users, batches, updateUser, revokeUser, reactivateUser, deleteUser, acting,
-  showBatchEditor, showRoleEditor, showRevoke, showReactivate,
+  users, batches, updateUser, revokeUser, reactivateUser, deleteUser, completeUser, acting,
+  showBatchEditor, showRoleEditor, showRevoke, showReactivate, showComplete,
 }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -65,6 +65,7 @@ export default function RegistryTable({
                   {u.status === "active" ? "Active"
                     : u.status === "invited" ? "Invited"
                     : u.status === "revoked" ? "Revoked"
+                    : u.status === "completed" ? "Completed"
                     : u.status}
                 </span>
               </td>
@@ -94,6 +95,15 @@ export default function RegistryTable({
                       style={{ background: "#16A34A", color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: isActing ? "not-allowed" : "pointer", fontFamily: "inherit" }}
                     >
                       {isActing ? "…" : "Reactivate"}
+                    </button>
+                  )}
+                  {showComplete && (
+                    <button
+                      onClick={() => completeUser(u._id, u.name)}
+                      disabled={isActing}
+                      style={{ background: "#4338CA", color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: isActing ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                    >
+                      {isActing ? "…" : "Mark Completed"}
                     </button>
                   )}
                   {showRevoke && (

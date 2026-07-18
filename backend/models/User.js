@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   email:    { type: String, unique: true, required: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['intern', 'hr', 'admin'], default: 'intern' },
-  status:   { type: String, enum: ['invited', 'active', 'revoked', 'pending', 'hr_reviewed', 'rejected'], default: 'invited' },
+  status:   { type: String, enum: ['invited', 'active', 'revoked', 'pending', 'hr_reviewed', 'rejected', 'completed'], default: 'invited' },
   domain:   { type: String, default: '' },
   batch:    { type: String, default: '' },
   appliedAt:{ type: Date, default: Date.now },
@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
   inviteDeliveryMethod: { type: String, enum: ['passcode_email', 'offer_letter_email', 'manual'], default: 'passcode_email' },
   revokedAt:    { type: Date, default: null },
   revokedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  completedAt:  { type: Date, default: null },
+  completedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
   emailVerified:      { type: Boolean, default: false },
   emailVerifyToken:   { type: String, default: null },
