@@ -1,5 +1,8 @@
 const { sendBrevoEmail } = require('./brevoMailer');
 
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
+const LOGO_URL = `${BASE_URL}/api/certificates/logo.png`;
+
 exports.sendInviteEmail = async ({ to, name, passcode }) => {
   await sendBrevoEmail({
     to,
@@ -8,7 +11,7 @@ exports.sendInviteEmail = async ({ to, name, passcode }) => {
     html: `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
         <div style="text-align:center;margin-bottom:24px">
-          <div style="width:48px;height:48px;background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">E</div>
+          <img src="${LOGO_URL}" alt="Enginow" width="48" height="48" style="border-radius:12px;display:inline-block">
         </div>
         <h2 style="color:#111827;font-size:20px;margin:0 0 8px">Welcome, ${name} 👋</h2>
         <p style="color:#6B7280;font-size:14px;line-height:1.6;margin:0 0 24px">
@@ -37,7 +40,7 @@ exports.sendOfferLetterEmail = async ({ to, name, passcode, domain, batch }) => 
     html: `
       <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
         <div style="text-align:center;margin-bottom:24px">
-          <div style="width:48px;height:48px;background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">E</div>
+          <img src="${LOGO_URL}" alt="Enginow" width="48" height="48" style="border-radius:12px;display:inline-block">
         </div>
         <h2 style="color:#111827;font-size:20px;margin:0 0 8px">Offer of Internship</h2>
         <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px">
