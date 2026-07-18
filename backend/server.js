@@ -50,6 +50,8 @@ app.use('/api/meetings', require('./routes/meetings'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/profile', require('./routes/profile'));
 
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
 app.get('/api/dashboard/stats', auth, async (req, res) => {
   try {
     const role = req.user.role;
