@@ -239,6 +239,7 @@ export default function AdminPanelPage() {
           ["invite", `Invite Intern (${invitedInterns.length} pending)`],
           ["registry", `Full Registry (${registry.length})`],
           ["batches", `Batches (${batches.length})`],
+          ["certificates", "Certificates"],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             padding: "9px 20px", border: "none", borderRadius: 8,
@@ -304,6 +305,8 @@ export default function AdminPanelPage() {
           removeInternFromBatch={removeInternFromBatch}
         />
       )}
+
+      {tab === "certificates" && <CertificateIssuePanel />}
     </div>
   );
 }
