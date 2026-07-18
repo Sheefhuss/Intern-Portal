@@ -7,7 +7,7 @@ const Task    = require('../models/Task');
 const auth    = require('../middleware/authMiddleware');
 const mailer  = require('../utils/mailer');
 
-const generatePasscode = () => crypto.randomInt(100000, 1000000).toString(); // 6 digits
+const generatePasscode = () => crypto.randomInt(100000, 1000000).toString(); 
 
 const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required.' });
@@ -124,7 +124,7 @@ router.post('/interns/invite', auth, requireAdmin, async (req, res) => {
     if (!name?.trim() || !email?.trim() || !domain?.trim())
       return res.status(400).json({ error: 'Name, email, and domain are required.' });
 
-    const validMethods = ['passcode_email', 'offer_letter_email', 'manual'];
+    const validMethods = ['passcode_email', 'manual'];
     const method = validMethods.includes(deliveryMethod) ? deliveryMethod : 'passcode_email';
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -149,11 +149,7 @@ router.post('/interns/invite', auth, requireAdmin, async (req, res) => {
     let emailSent = false;
     if (method !== 'manual') {
       try {
-        if (method === 'offer_letter_email') {
-          await mailer.sendOfferLetterEmail({ to: user.email, name: user.name, passcode, domain: user.domain, batch: user.batch });
-        } else {
-          await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
-        }
+        await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
         emailSent = true;
       } catch (mailErr) {
         console.error('Mail error:', mailErr.message);
@@ -180,7 +176,7 @@ router.patch('/interns/:id/resend-passcode', auth, requireAdmin, async (req, res
     if (user.status !== 'invited')
       return res.status(400).json({ error: 'This account is not awaiting activation.' });
 
-    const validMethods = ['passcode_email', 'offer_letter_email', 'manual'];
+    const validMethods = ['passcode_email', 'manual'];
     const { deliveryMethod } = req.body;
     const method = validMethods.includes(deliveryMethod) ? deliveryMethod : (user.inviteDeliveryMethod || 'passcode_email');
 
@@ -193,11 +189,7 @@ router.patch('/interns/:id/resend-passcode', auth, requireAdmin, async (req, res
     let emailSent = false;
     if (method !== 'manual') {
       try {
-        if (method === 'offer_letter_email') {
-          await mailer.sendOfferLetterEmail({ to: user.email, name: user.name, passcode, domain: user.domain, batch: user.batch });
-        } else {
-          await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
-        }
+        await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
         emailSent = true;
       } catch (mailErr) {
         console.error('Mail error:', mailErr.message);

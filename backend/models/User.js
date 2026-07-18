@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   appliedAt:{ type: Date, default: Date.now },
 
   invitedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  inviteDeliveryMethod: { type: String, enum: ['passcode_email', 'offer_letter_email', 'manual'], default: 'passcode_email' },
+  inviteDeliveryMethod: { type: String, enum: ['passcode_email', 'manual'], default: 'passcode_email' },
   revokedAt:    { type: Date, default: null },
   revokedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   completedAt:  { type: Date, default: null },

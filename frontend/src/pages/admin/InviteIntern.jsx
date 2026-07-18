@@ -14,9 +14,8 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
   const batchOptions = batches.filter(b => b.domain === domain);
 
   const deliveryOptions = [
-    { id: "passcode_email",     label: "Email the passcode directly",        hint: "A short email with just the one-time passcode." },
-    { id: "offer_letter_email", label: "Email an offer letter",              hint: "A formal offer letter email with the passcode embedded inside it." },
-    { id: "manual",             label: "Don't send an email",                hint: "You'll share the offer letter and passcode yourself, outside the portal." },
+    { id: "passcode_email", label: "Email the passcode",         hint: "A short email with just the one-time passcode." },
+    { id: "manual",         label: "Don't send an email",         hint: "No email is sent — the passcode is shown here after you send the invite, so you can paste it into your own email." },
   ];
 
   const submit = async (e) => {
@@ -107,7 +106,7 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
             {lastPasscode.deliveryMethod === "manual" ? (
               <>No email was sent — share this passcode with them yourself:{" "}</>
             ) : lastPasscode.emailSent ? (
-              <>{lastPasscode.deliveryMethod === "offer_letter_email" ? "Offer letter" : "Passcode"} emailed to them — it's also shown here in case the email doesn't arrive:{" "}</>
+              <>Passcode emailed to them — it's also shown here in case the email doesn't arrive:{" "}</>
             ) : (
               <>The email failed to send — share this passcode with them yourself:{" "}</>
             )}
