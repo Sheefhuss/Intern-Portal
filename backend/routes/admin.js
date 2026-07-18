@@ -94,9 +94,12 @@ router.patch('/users/:id/reactivate', auth, requireAdmin, async (req, res) => {
 
 router.post('/interns/invite', auth, requireAdmin, async (req, res) => {
   try {
-    const { name, email, domain, batch } = req.body;
+    const { name, email, domain, batch, deliveryMethod } = req.body;
     if (!name?.trim() || !email?.trim() || !domain?.trim())
       return res.status(400).json({ error: 'Name, email, and domain are required.' });
+
+    const validMethods = ['passcode_email', 'offer_letter_email', 'manual'];
+    const method = validMethods.includes(deliveryMethod) ? deliveryMethod : 'passcode_email';
 
     const normalizedEmail = email.toLowerCase().trim();
     const exists = await User.findOne({ email: normalizedEmail });
@@ -112,18 +115,33 @@ router.post('/interns/invite', auth, requireAdmin, async (req, res) => {
       domain: domain.trim(),
       batch: batch?.trim() || '',
       invitedBy: req.user.id,
+      inviteDeliveryMethod: method,
       otp: passcode,
       otpExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    try {
-      await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
-    } catch (mailErr) {
-      console.error('Mail error:', mailErr.message);
+    let emailSent = false;
+    if (method !== 'manual') {
+      try {
+        if (method === 'offer_letter_email') {
+          await mailer.sendOfferLetterEmail({ to: user.email, name: user.name, passcode, domain: user.domain, batch: user.batch });
+        } else {
+          await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
+        }
+        emailSent = true;
+      } catch (mailErr) {
+        console.error('Mail error:', mailErr.message);
+      }
     }
 
     const safeUser = await User.findById(user._id).select(safeFields);
-    res.status(201).json({ message: 'Invitation sent.', user: safeUser, passcode });
+    res.status(201).json({
+      message: method === 'manual' ? 'Invitation created. No email was sent — share the passcode yourself.' : 'Invitation sent.',
+      user: safeUser,
+      passcode,
+      emailSent,
+      deliveryMethod: method,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -136,18 +154,36 @@ router.patch('/interns/:id/resend-passcode', auth, requireAdmin, async (req, res
     if (user.status !== 'invited')
       return res.status(400).json({ error: 'This account is not awaiting activation.' });
 
+    const validMethods = ['passcode_email', 'offer_letter_email', 'manual'];
+    const { deliveryMethod } = req.body;
+    const method = validMethods.includes(deliveryMethod) ? deliveryMethod : (user.inviteDeliveryMethod || 'passcode_email');
+
     const passcode = generatePasscode();
     user.otp        = passcode;
     user.otpExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    user.inviteDeliveryMethod = method;
     await user.save();
 
-    try {
-      await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
-    } catch (mailErr) {
-      console.error('Mail error:', mailErr.message);
+    let emailSent = false;
+    if (method !== 'manual') {
+      try {
+        if (method === 'offer_letter_email') {
+          await mailer.sendOfferLetterEmail({ to: user.email, name: user.name, passcode, domain: user.domain, batch: user.batch });
+        } else {
+          await mailer.sendInviteEmail({ to: user.email, name: user.name, passcode });
+        }
+        emailSent = true;
+      } catch (mailErr) {
+        console.error('Mail error:', mailErr.message);
+      }
     }
 
-    res.json({ message: 'Passcode resent.', passcode });
+    res.json({
+      message: method === 'manual' ? 'Passcode regenerated. No email was sent — share it yourself.' : 'Passcode resent.',
+      passcode,
+      emailSent,
+      deliveryMethod: method,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

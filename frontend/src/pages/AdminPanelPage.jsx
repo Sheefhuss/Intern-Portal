@@ -42,12 +42,12 @@ export default function AdminPanelPage() {
 
   useEffect(() => { load(); }, []);
 
-  const invite = async ({ name, email, domain, batch }) => {
+  const invite = async ({ name, email, domain, batch, deliveryMethod }) => {
     setInviting(true);
     try {
       const result = await AuthService.apiFetch("/admin/interns/invite", {
         method: "POST",
-        body: JSON.stringify({ name, email, domain, batch }),
+        body: JSON.stringify({ name, email, domain, batch, deliveryMethod }),
       });
       await load();
       return result;
@@ -59,11 +59,14 @@ export default function AdminPanelPage() {
     }
   };
 
-  const resendPasscode = async (id) => {
+  const resendPasscode = async (id, deliveryMethod) => {
     setResending(id);
     try {
-      await AuthService.apiFetch(`/admin/interns/${id}/resend-passcode`, { method: "PATCH" });
-      alert("Passcode resent.");
+      const result = await AuthService.apiFetch(`/admin/interns/${id}/resend-passcode`, {
+        method: "PATCH",
+        body: JSON.stringify({ deliveryMethod }),
+      });
+      alert(result.emailSent ? "Passcode resent." : `No email was sent. New passcode: ${result.passcode}`);
     } catch (err) {
       alert(err.message);
     } finally {

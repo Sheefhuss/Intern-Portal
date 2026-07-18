@@ -8,17 +8,24 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
   const [email, setEmail]   = useState("");
   const [domain, setDomain] = useState("");
   const [batch, setBatch]   = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState("passcode_email");
   const [lastPasscode, setLastPasscode] = useState(null);
 
   const batchOptions = batches.filter(b => b.domain === domain);
 
+  const deliveryOptions = [
+    { id: "passcode_email",     label: "Email the passcode directly",        hint: "A short email with just the one-time passcode." },
+    { id: "offer_letter_email", label: "Email an offer letter",              hint: "A formal offer letter email with the passcode embedded inside it." },
+    { id: "manual",             label: "Don't send an email",                hint: "You'll share the offer letter and passcode yourself, outside the portal." },
+  ];
+
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !domain) return alert("Name, email, and domain are required.");
-    const result = await invite({ name: name.trim(), email: email.trim(), domain, batch });
+    const result = await invite({ name: name.trim(), email: email.trim(), domain, batch, deliveryMethod });
     if (result) {
-      setLastPasscode({ email: email.trim(), passcode: result.passcode });
-      setName(""); setEmail(""); setDomain(""); setBatch("");
+      setLastPasscode({ email: email.trim(), passcode: result.passcode, emailSent: result.emailSent, deliveryMethod: result.deliveryMethod });
+      setName(""); setEmail(""); setDomain(""); setBatch(""); setDeliveryMethod("passcode_email");
     }
   };
 
@@ -60,6 +67,30 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
             </select>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>
+              How should the passcode reach them?
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {deliveryOptions.map(opt => (
+                <label key={opt.id} style={{
+                  display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px",
+                  border: `1.5px solid ${deliveryMethod === opt.id ? "#7C3AED" : "#E5E7EB"}`,
+                  borderRadius: 8, cursor: "pointer",
+                  background: deliveryMethod === opt.id ? "#F5F3FF" : "#fff",
+                }}>
+                  <input type="radio" name="deliveryMethod" value={opt.id}
+                    checked={deliveryMethod === opt.id}
+                    onChange={() => setDeliveryMethod(opt.id)}
+                    style={{ marginTop: 3 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{opt.label}</div>
+                    <div style={{ fontSize: 11.5, color: "#6B7280" }}>{opt.hint}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
             <button type="submit" disabled={inviting} style={{
               padding: "10px 22px", background: inviting ? "#9CA3AF" : "linear-gradient(135deg,#7C3AED,#6D28D9)",
               color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600,
@@ -72,8 +103,15 @@ export default function InviteIntern({ invited, batches, inviting, invite, resen
 
         {lastPasscode && (
           <div style={{ marginTop: 16, padding: "10px 14px", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 10, fontSize: 12, color: "#16A34A" }}>
-            Invited <strong>{lastPasscode.email}</strong>. Passcode emailed to them — it's also shown here
-            in case the email doesn't arrive: <strong style={{ letterSpacing: 2 }}>{lastPasscode.passcode}</strong>
+            Invited <strong>{lastPasscode.email}</strong>.{" "}
+            {lastPasscode.deliveryMethod === "manual" ? (
+              <>No email was sent — share this passcode with them yourself:{" "}</>
+            ) : lastPasscode.emailSent ? (
+              <>{lastPasscode.deliveryMethod === "offer_letter_email" ? "Offer letter" : "Passcode"} emailed to them — it's also shown here in case the email doesn't arrive:{" "}</>
+            ) : (
+              <>The email failed to send — share this passcode with them yourself:{" "}</>
+            )}
+            <strong style={{ letterSpacing: 2 }}>{lastPasscode.passcode}</strong>
           </div>
         )}
       </div>
