@@ -165,24 +165,6 @@ export default function LoginPage({ onLoginSuccess }) {
           <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>Enginow Intern Portal</div>
         </div>
 
-        {tab !== "resetPassword" && (
-          <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 4, marginBottom: 24, gap: 4 }}>
-            {[["login", "Sign In"], ["signup", "Create Account"], ["forgot", "Reset Password"]].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); setError(""); setSuccess(""); setNotActivatedEmail(null); }}
-                style={{
-                  flex: 1, padding: "8px 0", border: "none", borderRadius: 8,
-                  fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                  background: tab === id ? "#fff" : "transparent",
-                  color: tab === id ? "#7C3AED" : "#6B7280",
-                  boxShadow: tab === id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-                  transition: "all 0.2s",
-                }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {error && (
           <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 14px", color: "#DC2626", fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
             {error}
@@ -294,6 +276,11 @@ export default function LoginPage({ onLoginSuccess }) {
                 finally { setResending(false); }
               }} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>
                 {resending ? "Resending…" : "Resend passcode"}
+              </span>
+            </p>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#9CA3AF", marginTop: 8 }}>
+              <span onClick={() => { setTab("login"); setError(""); setSuccess(""); }} style={{ color: "#7C3AED", cursor: "pointer", fontWeight: 600 }}>
+                ← Back to Sign In
               </span>
             </p>
           </form>
