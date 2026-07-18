@@ -263,7 +263,7 @@ router.delete('/batches/:id', auth, requireAdmin, async (req, res) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return res.status(404).json({ error: 'Batch not found.' });
 
-    const internCount = await User.countDocuments({ domain: batch.domain, batch: batch.name, role: 'intern' });
+    const internCount = await User.countDocuments({ domain: batch.domain, batch: batch.name, role: 'intern', status: 'active' });
     if (internCount > 0) {
       return res.status(409).json({ error: `Cannot delete — ${internCount} intern(s) still assigned to this batch.` });
     }
