@@ -16,27 +16,44 @@ const maybeIssueCertificate = async (internId) => {
   if (!allSubs.length) return;
   if (!allSubs.every(s => s.status === 'reviewed')) return;
 
+  const latestReviewedAt = allSubs.reduce((max, s) => {
+    const t = s.reviewedAt ? new Date(s.reviewedAt).getTime() : 0;
+    return t > max ? t : max;
+  }, 0);
+
   const existing = await Certificate.findOne({ student: internId });
-  if (existing) return existing;
+
+  if (existing && existing.lastReviewedAt && new Date(existing.lastReviewedAt).getTime() >= latestReviewedAt) {
+    return existing;
+  }
 
   const intern = await User.findById(internId).select('name email domain batch');
   if (!intern) return;
 
-  let certificate;
-  try {
-    certificate = await Certificate.create({
-      student: internId,
-      certificateId: generateCertificateId(),
-      domain: intern.domain,
-      batch: intern.batch,
-      emailSent: false,
-    });
-  } catch (err) {
-    if (err.code === 11000) {
-      certificate = await Certificate.findOne({ student: internId });
-    } else {
-      throw err;
+  let certificate = existing;
+  if (!certificate) {
+    try {
+      certificate = await Certificate.create({
+        student: internId,
+        certificateId: generateCertificateId(),
+        domain: intern.domain,
+        batch: intern.batch,
+        emailSent: false,
+        lastReviewedAt: new Date(latestReviewedAt),
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        certificate = await Certificate.findOne({ student: internId });
+      } else {
+        throw err;
+      }
     }
+  } else {
+    certificate.domain = intern.domain;
+    certificate.batch = intern.batch;
+    certificate.emailSent = false;
+    certificate.lastReviewedAt = new Date(latestReviewedAt);
+    await certificate.save();
   }
 
   if (!certificate) return;
