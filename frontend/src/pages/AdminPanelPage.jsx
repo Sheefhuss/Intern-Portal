@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthService } from "../auth/authService";
 import InviteIntern from "./admin/InviteIntern";
 import FullRegistry from "./admin/FullRegistry";
 import BatchesTab from "./admin/BatchesTab";
+import { DOMAINS } from "../data/database";
 
 export default function AdminPanelPage() {
   const [tab, setTab] = useState("invite");
@@ -206,10 +207,7 @@ export default function AdminPanelPage() {
     }
   };
 
-  const domains = useMemo(
-    () => [...new Set(registry.map(u => u.domain).filter(Boolean))],
-    [registry]
-  );
+  const domains = DOMAINS;
 
   const activeInterns   = registry.filter(u => u.role === "intern" && u.status === "active");
   const hrStaff         = registry.filter(u => u.role === "hr" && u.status !== "revoked");
@@ -255,7 +253,7 @@ export default function AdminPanelPage() {
           activeInterns={activeInterns}
           hrStaff={hrStaff}
           adminStaff={adminStaff}
-          invitedInterns={invitedInterns}
+          inactivePending={invitedInterns}
           revokedUsers={revokedUsers}
           batches={batches}
           updateUser={updateUser}
