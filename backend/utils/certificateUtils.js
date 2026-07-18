@@ -4,6 +4,7 @@ const Certificate = require('../models/Certificate');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { sendCertificateEmail } = require('./sendEmail');
+const socketManager = require('./socketManager');
 
 const generateCertificateId = () => {
   const year = new Date().getFullYear();
@@ -61,7 +62,7 @@ const maybeIssueCertificate = async (internId) => {
     console.error('Certificate email failed for', intern.email, ':', emailErr.message);
   }
 
-  await Notification.create({
+  const notif = await Notification.create({
     userId: intern._id,
     role: 'intern',
     type: 'certificate',
@@ -69,6 +70,10 @@ const maybeIssueCertificate = async (internId) => {
       ? `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued and emailed to you.`
       : `🎓 Your Certificate of Completion for the ${intern.domain || 'Internship'} program${intern.batch ? `, Batch ${intern.batch}` : ''} has been issued. We're having trouble emailing it — you can view it in your portal.`,
     meta: { certificateId: certificate.certificateId },
+  });
+  socketManager.emitToUser(intern._id, 'notification:new', {
+    id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
+    time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
   });
 
   return certificate;

@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const User     = require('../models/User');
 const auth     = require('../middleware/authMiddleware');
 const { sendMeetingEmail } = require('../utils/sendEmail');
+const socketManager = require('../utils/socketManager');
 
 const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required.' });
@@ -12,10 +13,14 @@ const requireAdmin = (req, res, next) => {
 };
 
 const notifyStaff = async (text) => {
-  await Notification.insertMany([
+  const docs = await Notification.insertMany([
     { role: 'admin', type: 'system', text },
     { role: 'hr',    type: 'system', text },
   ]);
+  docs.forEach(n => socketManager.emitToAll('notification:new', {
+    id: n._id, role: n.role, type: n.type, text: n.text, read: false,
+    time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+  }));
 };
 router.get('/options', auth, async (req, res) => {
   try {
@@ -203,7 +208,10 @@ router.patch('/:id/approve', auth, requireAdmin, async (req, res) => {
       userId: meeting.createdBy._id,
       type: 'system',
       text: `✅ Your meeting request "${meeting.title}" was approved!${approvalLink ? ' Check the Meetings page for your link.' : ''}`,
-    });
+    }).then(n => socketManager.emitToUser(meeting.createdBy._id, 'notification:new', {
+      id: n._id, role: n.role, type: n.type, text: n.text, read: false,
+      time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    }));
 
     if (meeting.createdBy?.email) {
       sendMeetingEmail({
@@ -233,7 +241,10 @@ router.patch('/:id/reject', auth, requireAdmin, async (req, res) => {
       userId: meeting.createdBy,
       type: 'system',
       text: `❌ Your meeting request "${meeting.title}" was not approved. Contact HR for details.`,
-    });
+    }).then(n => socketManager.emitToUser(meeting.createdBy, 'notification:new', {
+      id: n._id, role: n.role, type: n.type, text: n.text, read: false,
+      time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    }));
 
     res.json(meeting);
   } catch (err) {

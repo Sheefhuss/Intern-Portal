@@ -8,6 +8,7 @@ const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
 const { decorate, batchInterns, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
+const socketManager = require('../utils/socketManager');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -278,10 +279,14 @@ router.post('/:id/comments', auth, async (req, res) => {
     });
 
     const notifyRole = req.user.role === 'hr' ? 'admin' : 'hr';
-    await Notification.create({
+    const notif = await Notification.create({
       role: notifyRole,
       type: 'task',
       text: `${author?.name || 'Someone'} (${req.user.role.toUpperCase()}) commented on "${task.title}": "${text.trim()}"`,
+    });
+    socketManager.emitToAll('notification:new', {
+      id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
+      time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
     });
 
     res.status(201).json(comment);

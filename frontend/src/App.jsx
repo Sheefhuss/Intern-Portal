@@ -101,13 +101,21 @@ export default function App() {
       }
     };
 
+    const handleNewNotification = (notif) => {
+      const relevant = notif.role === "all" || notif.role === session?.role;
+      if (!relevant) return;
+      setNotifications(prev => prev.some(n => n.id === notif.id) ? prev : [notif, ...prev]);
+    };
+
     socketInstance.on("receive_message", handleReceive);
+    socketInstance.on("notification:new", handleNewNotification);
 
     return () => {
       socketInstance.off("receive_message", handleReceive);
+      socketInstance.off("notification:new", handleNewNotification);
       socketInstance.disconnect();
     };
-  }, [currentUserId]);
+  }, [currentUserId, session]);
 
   const unreadNotifs = notifications.filter(n => !n.read);
   const readNotifs = notifications.filter(n => n.read);

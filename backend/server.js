@@ -10,7 +10,8 @@ const Task = require('./models/Task');
 const Submission = require('./models/Submission');
 const Notification = require('./models/Notification');
 const auth = require('./middleware/authMiddleware');
-const jwt = require('jsonwebtoken');
+const socketManager = require('./utils/socketManager');
+const { sendAnnouncementEmail } = require('./utils/sendEmail');
 
 const app = express();
 const server = http.createServer(app);
@@ -71,7 +72,7 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
     if (role === 'admin') {
       const totalUsers = await User.countDocuments({ role: { $in: ['intern', 'hr'] } });
       const activeInterns = await User.countDocuments({ role: 'intern', status: 'active' });
-      const systemAlerts = await Notification.countDocuments({ type: 'system', read: false });
+      const systemAlerts = await Notification.countDocuments({ type: 'system', readBy: { $ne: req.user.id } });
 
       const serverHealth = [
         { metric: 'Active Interns', value: activeInterns, status: 'Good' },
@@ -129,27 +130,18 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
   }
 });
 
-app.get('/api/notifications', async (req, res) => {
+app.get('/api/notifications', auth, async (req, res) => {
   try {
-    let userId = null, userRole = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      try {
-        const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
-        userId = decoded.id;
-        userRole = decoded.role;
-      } catch {}
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role;
 
-    const query = userId
-      ? {
-          $or: [
-            { userId },
-            { role: 'all' },
-            { role: userRole, userId: { $exists: false } },
-          ],
-        }
-      : { role: 'all' };
+    const query = {
+      $or: [
+        { userId },
+        { role: 'all' },
+        { role: userRole, userId: { $exists: false } },
+      ],
+    };
 
     const notifs = await Notification.find(query).sort({ createdAt: -1 }).limit(30);
     res.json(notifs.map(n => ({
@@ -157,7 +149,7 @@ app.get('/api/notifications', async (req, res) => {
       role: n.role,
       type: n.type,
       text: n.text,
-      read: n.read,
+      read: (n.readBy || []).some(id => String(id) === String(userId)),
       time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
     })));
   } catch (error) {
@@ -165,18 +157,27 @@ app.get('/api/notifications', async (req, res) => {
   }
 });
 
-app.put('/api/notifications/read-all', async (req, res) => {
+app.put('/api/notifications/read-all', auth, async (req, res) => {
   try {
-    await Notification.updateMany({ read: false }, { read: true });
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const query = {
+      $or: [
+        { userId },
+        { role: 'all' },
+        { role: userRole, userId: { $exists: false } },
+      ],
+    };
+    await Notification.updateMany(query, { $addToSet: { readBy: userId } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to mark all as read' });
   }
 });
 
-app.put('/api/notifications/:id/read', async (req, res) => {
+app.put('/api/notifications/:id/read', auth, async (req, res) => {
   try {
-    await Notification.findByIdAndUpdate(req.params.id, { read: true });
+    await Notification.findByIdAndUpdate(req.params.id, { $addToSet: { readBy: req.user.id } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update read status' });
@@ -193,11 +194,34 @@ app.post('/api/announcements', auth, async (req, res) => {
       return res.status(400).json({ error: 'Announcement text is required.' });
 
     const validRoles = ['all', 'intern', 'hr', 'admin'];
+    const notifRole = validRoles.includes(role) ? role : 'all';
+    const trimmedText = text.trim();
     const notif = await Notification.create({
-      role: validRoles.includes(role) ? role : 'all',
+      role: notifRole,
       type: 'announcement',
-      text: text.trim(),
+      text: trimmedText,
     });
+
+    socketManager.emitToAll('notification:new', {
+      id: notif._id,
+      role: notif.role,
+      type: notif.type,
+      text: notif.text,
+      read: false,
+      time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    });
+
+    const recipientQuery = notifRole === 'all'
+      ? { role: { $in: ['intern', 'hr', 'admin'] }, status: 'active' }
+      : { role: notifRole, status: 'active' };
+    const recipients = await User.find(recipientQuery).select('name email');
+    Promise.allSettled(
+      recipients.map(u => sendAnnouncementEmail({ to: u.email, internName: u.name, text: trimmedText }))
+    ).then(results => {
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed) console.error(`Announcement email failed for ${failed}/${recipients.length} recipients.`);
+    });
+
     res.status(201).json(notif);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -206,7 +230,7 @@ app.post('/api/announcements', auth, async (req, res) => {
 
 app.get('/', (req, res) => res.send('Intern Portal API running'));
 
-require('./utils/socketManager')(io);
+socketManager(io);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

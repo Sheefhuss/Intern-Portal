@@ -9,6 +9,7 @@ const auth = require('../middleware/authMiddleware');
 const { isIndividual, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
 const { sendTaskEmail } = require('../utils/sendEmail');
+const socketManager = require('../utils/socketManager');
 
 router.get('/progress/interns', auth, async (req, res) => {
   try {
@@ -80,10 +81,14 @@ router.patch('/:id/submit', auth, async (req, res) => {
 
     try {
       const intern = await User.findById(req.user.id).select('name');
-      await Notification.create({
+      const notif = await Notification.create({
         role: 'hr',
         type: 'task',
         text: `${intern?.name || 'An intern'} submitted "${task.title}" for review.`,
+      });
+      socketManager.emitToAll('notification:new', {
+        id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
+        time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
       });
     } catch (notifyErr) {
       console.error('Submission notification failed:', notifyErr.message);
@@ -193,11 +198,15 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
         ? ` The deadline has been extended to ${new Date(newDeadline).toLocaleDateString()}.`
         : '';
       const commentNote = comment ? ` Note: "${comment}"` : '';
-      await Notification.create({
+      const notif = await Notification.create({
         userId: intern._id,
         role: 'intern',
         type: 'task',
         text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.${deadlineNote}${commentNote}`,
+      });
+      socketManager.emitToUser(intern._id, 'notification:new', {
+        id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
+        time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
       });
       try {
         await sendTaskEmail({

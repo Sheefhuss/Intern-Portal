@@ -2,8 +2,11 @@ const jwt = require('jsonwebtoken');
 const Message = require('../models/Message');
 
 const onlineUsers = new Map();
+let ioInstance = null;
 
-module.exports = (io) => {
+function setup(io) {
+  ioInstance = io;
+
   io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
@@ -94,4 +97,19 @@ module.exports = (io) => {
       }
     });
   });
-};
+}
+
+function emitToUser(userId, event, payload) {
+  if (!ioInstance || !userId) return;
+  const socketId = onlineUsers.get(String(userId));
+  if (socketId) ioInstance.to(socketId).emit(event, payload);
+}
+
+function emitToAll(event, payload) {
+  if (!ioInstance) return;
+  ioInstance.emit(event, payload);
+}
+
+module.exports = setup;
+module.exports.emitToUser = emitToUser;
+module.exports.emitToAll = emitToAll;
