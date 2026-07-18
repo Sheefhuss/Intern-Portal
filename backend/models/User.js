@@ -5,11 +5,12 @@ const userSchema = new mongoose.Schema({
   email:    { type: String, unique: true, required: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['intern', 'hr', 'admin'], default: 'intern' },
-  status:   { type: String, enum: ['pending', 'hr_reviewed', 'active', 'rejected', 'revoked'], default: 'pending' },
+  status:   { type: String, enum: ['invited', 'active', 'revoked'], default: 'invited' },
   domain:   { type: String, default: '' },
   batch:    { type: String, default: '' },
   appliedAt:{ type: Date, default: Date.now },
 
+  invitedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   revokedAt:    { type: Date, default: null },
   revokedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 

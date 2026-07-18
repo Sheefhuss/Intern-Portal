@@ -213,7 +213,7 @@ export default function DashboardPage({ session, onNavigate }) {
                   onClick={() => nav("interns")}
                   style={{ ...actionButtonStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}
                 >
-                  <span>Review HR-Forwarded Applications</span>
+                  <span>Manage Intern Registry</span>
                 </button>
                 <button onClick={() => nav("tasks")} style={actionButtonStyle}>
                   Manage Tasks
