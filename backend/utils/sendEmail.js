@@ -2,9 +2,10 @@ const { sendBrevoEmail } = require('./brevoMailer');
 
    const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
-async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl, downloadUrl }) {
+async function sendCertificateEmail({ to, internName, domain, batch, certificateId, issuedAt, verifyUrl, downloadUrl, pdfBase64, pdfFilename }) {
   const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
   const hasLogo = true;
   const logoDataUri = `${BASE_URL}/api/certificates/logo.png`;
@@ -28,8 +29,8 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
               Congratulations, ${internName}! 🎉
             </h1>
             <p style="font-size:14px;color:#374151;line-height:1.7;">
-              You have successfully completed the <strong>${domain || 'Internship'} Program</strong>${batch ? `, Batch <strong>${batch}</strong>` : ''}
-              with all assigned tasks reviewed and approved by the Enginow team.
+              You have successfully completed all assigned tasks in the <strong>${domain || 'Internship'} Program</strong>${batch ? `, Batch <strong>${batch}</strong>` : ''},
+              reviewed and approved by the Enginow team.
             </p>
             <table style="width:100%;margin-top:26px;padding-top:18px;border-top:1px solid #F3F0FF;">
               <tr>
@@ -61,12 +62,18 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
     toName: internName,
     subject: `🎓 Your Certificate of Completion — ${domain || 'Internship'} Program`,
     html,
+    attachments: pdfBase64
+      ? [{ filename: pdfFilename || `certificate-${certificateId}.pdf`, content: pdfBase64 }]
+      : undefined,
   });
 }
 
 async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) {
   const formattedTime = time
-    ? new Date(time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    ? new Date(time).toLocaleString('en-IN', {
+        dateStyle: 'medium', timeStyle: 'short',
+        timeZone: 'Asia/Kolkata',
+      })
     : '';
 
   const html = `

@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Certificate = require('../models/Certificate');
+const Notification = require('../models/Notification');
 const auth = require('../middleware/authMiddleware');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { sendCertificateEmail } = require('../utils/sendEmail');
+const socketManager = require('../utils/socketManager');
 
 const LOGO_PATH = path.join(__dirname, '../../frontend/public/enginow.png');
 let LOGO_B64 = '';
@@ -21,6 +24,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 const renderCertificateHtml = async (cert) => {
   const issued = new Date(cert.issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
 
   const verifyUrl = `${BASE_URL}/api/certificates/${cert.certificateId}/view`;
@@ -98,7 +102,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
         <div class="sub">This is proudly presented to</div>
         <div class="name">${cert.student?.name || 'Intern'}</div>
         <div class="body-text">
-          For successfully completing the <strong>${cert.domain || 'Internship'} Program</strong>${cert.batch ? ', <strong>Batch ' + cert.batch + '</strong>' : ''} with all assigned tasks reviewed and approved by the Enginow team. This achievement reflects a strong commitment to excellence and professional growth.
+          For successfully completing all assigned tasks in the <strong>${cert.domain || 'Internship'} Program</strong>${cert.batch ? ', <strong>Batch ' + cert.batch + '</strong>' : ''}, reviewed and approved by the Enginow team. This achievement reflects a strong commitment to excellence and professional growth.
         </div>
         <div class="footer">
           <div>
@@ -184,6 +188,83 @@ router.get('/:certificateId/qr.png', async (req, res) => {
     res.send(qrBuffer);
   } catch (err) {
     res.status(500).end();
+  }
+});
+
+router.get('/', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const certificates = await Certificate
+      .find({})
+      .populate('student', 'name email domain batch')
+      .sort({ issuedAt: -1 });
+
+    res.json(certificates);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:certificateId/issue', auth, async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role))
+      return res.status(403).json({ error: 'Access denied.' });
+
+    const { pdfBase64, filename } = req.body;
+    if (!pdfBase64 || !pdfBase64.trim())
+      return res.status(400).json({ error: 'A certificate PDF (base64) is required.' });
+
+    const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
+
+    const certificate = await Certificate
+      .findOne({ certificateId: req.params.certificateId })
+      .populate('student', 'name email');
+
+    if (!certificate) return res.status(404).json({ error: 'Certificate not found.' });
+    if (!certificate.student) return res.status(404).json({ error: 'Intern not found for this certificate.' });
+
+    try {
+      await sendCertificateEmail({
+        to: certificate.student.email,
+        internName: certificate.student.name,
+        domain: certificate.domain,
+        batch: certificate.batch,
+        certificateId: certificate.certificateId,
+        issuedAt: certificate.issuedAt || certificate.createdAt,
+        pdfBase64: cleanBase64,
+        pdfFilename: filename || `certificate-${certificate.certificateId}.pdf`,
+      });
+    } catch (emailErr) {
+      console.error('Manual certificate email failed for', certificate.student.email, ':', emailErr.message);
+      return res.status(502).json({ error: `Certificate email failed: ${emailErr.message}` });
+    }
+
+    certificate.emailSent = true;
+    await certificate.save();
+
+    const internNotif = await Notification.create({
+      userId: certificate.student._id,
+      role: 'intern',
+      type: 'certificate',
+      text: `🎓 Your Certificate of Completion for the ${certificate.domain || 'Internship'} program${certificate.batch ? `, Batch ${certificate.batch}` : ''} has been issued and emailed to you.`,
+      meta: { certificateId: certificate.certificateId },
+    });
+    socketManager.emitToUser(certificate.student._id, 'notification:new', {
+      id: internNotif._id,
+      role: internNotif.role,
+      type: internNotif.type,
+      text: internNotif.text,
+      read: false,
+      time: new Date(internNotif.createdAt).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata',
+      }),
+    });
+
+    res.json({ success: true, certificate });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

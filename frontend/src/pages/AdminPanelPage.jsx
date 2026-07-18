@@ -4,6 +4,7 @@ import InviteIntern from "./admin/InviteIntern";
 import FullRegistry from "./admin/FullRegistry";
 import BatchesTab from "./admin/BatchesTab";
 import { DOMAINS } from "../data/database";
+import CertificateIssuePanel from "./admin/CertificateIssuePanel";
 
 export default function AdminPanelPage() {
   const [tab, setTab] = useState("invite");
