@@ -5,6 +5,7 @@ import FullRegistry from "./admin/FullRegistry";
 import BatchesTab from "./admin/BatchesTab";
 import { DOMAINS } from "../data/database";
 import CertificateIssuePanel from "./admin/CertificateIssuePanel";
+import TaskCertificatesPanel from "./admin/TaskCertificatesPanel";
 import OfferLetterPanel from "./admin/OfferLetterPanel";
 
 export default function AdminPanelPage() {
@@ -241,6 +242,7 @@ export default function AdminPanelPage() {
           ["registry", `Full Registry (${registry.length})`],
           ["batches", `Batches (${batches.length})`],
           ["certificates", "Certificates"],
+          ["taskCertificates", "Task Certificates"],
           ["offerLetters", "Offer Letters"],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
@@ -309,6 +311,7 @@ export default function AdminPanelPage() {
       )}
 
       {tab === "certificates" && <CertificateIssuePanel />}
+      {tab === "taskCertificates" && <TaskCertificatesPanel />}
       {tab === "offerLetters" && <OfferLetterPanel />}
     </div>
   );

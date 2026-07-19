@@ -7,6 +7,7 @@ import CreateTaskForm from "./tasks/CreateTaskForm";
 import TaskCard from "./tasks/TaskCard";
 import TrackingModal from "./tasks/TrackingModal";
 import SubmitModal from "./tasks/SubmitModal";
+import MyTaskCertificates from "./tasks/MyTaskCertificates";
 
 export default function TasksPage({ session }) {
   const role      = session?.role?.toLowerCase();
@@ -310,6 +311,8 @@ export default function TasksPage({ session }) {
           onCancel={() => { setForm(emptyForm); setShowForm(false); }}
         />
       )}
+
+      {!isManager && <MyTaskCertificates />}
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 48, color: "#9CA3AF" }}>Loading tasks...</div>
