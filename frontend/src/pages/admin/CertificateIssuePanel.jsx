@@ -69,10 +69,16 @@ export default function CertificateIssuePanel() {
   const issued = certificates.filter((c) => c.emailSent);
   const visible = tab === "pending" ? pending : issued;
 
+  const MAX_PDF_BYTES = 8 * 1024 * 1024; // 8MB raw file (~10.7MB once base64-encoded, safely under the server's 15MB JSON limit)
+
   const handleFile = (certId, file) => {
     if (!file) return;
     if (file.type !== "application/pdf") {
       alert("Please select a PDF file.");
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      alert("That PDF is too large (max 8MB). Try compressing it first.");
       return;
     }
     setFilesByCert((prev) => ({ ...prev, [certId]: file }));

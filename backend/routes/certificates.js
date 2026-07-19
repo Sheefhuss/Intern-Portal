@@ -203,6 +203,10 @@ router.post('/:certificateId/issue', auth, async (req, res) => {
 
     const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
 
+    const approxBytes = Math.ceil((cleanBase64.length * 3) / 4);
+    if (approxBytes > 8 * 1024 * 1024)
+      return res.status(400).json({ error: 'PDF is too large (max 8MB).' });
+
     const certificate = await Certificate
       .findOne({ certificateId: req.params.certificateId })
       .populate('student', 'name email');
