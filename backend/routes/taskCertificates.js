@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const QRCode = require('qrcode');
 const TaskCertificate = require('../models/TaskCertificate');
+const Notification = require('../models/Notification');
+const socketManager = require('../utils/socketManager');
 const auth = require('../middleware/authMiddleware');
 const { renderTaskCertificateHtml, renderTaskCertificatePdf, resendTaskCertificate } = require('../utils/taskCertificateUtils');
 
@@ -36,6 +38,7 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
+// Admin/HR: list every task certificate that's been auto-issued.
 router.get('/', auth, async (req, res) => {
   try {
     if (!['admin', 'hr'].includes(req.user.role))
@@ -101,22 +104,32 @@ router.post('/:certificateId/resend', auth, async (req, res) => {
   }
 });
 
-router.post('/:certificateId/resend-self', auth, async (req, res) => {
+router.post('/:certificateId/request-resend', auth, async (req, res) => {
   try {
     if (req.user.role !== 'intern')
       return res.status(403).json({ error: 'Access denied.' });
 
-    const owned = await TaskCertificate.findOne({
+    const certificate = await TaskCertificate.findOne({
       certificateId: req.params.certificateId,
       student: req.user.id,
-    });
-    if (!owned) return res.status(404).json({ error: 'Certificate not found.' });
+    }).populate('student', 'name');
+    if (!certificate) return res.status(404).json({ error: 'Certificate not found.' });
 
-    const certificate = await resendTaskCertificate(req.params.certificateId);
-    res.json({ success: true, certificate });
+    const notif = await Notification.create({
+      role: 'hr',
+      type: 'certificate',
+      text: `${certificate.student?.name || 'An intern'} says they didn't receive the certificate for "${certificate.taskTitle}" — please resend it from Task Certificates.`,
+      meta: { certificateId: certificate.certificateId },
+    });
+    socketManager.emitToAll('notification:new', {
+      id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
+      time: new Date(notif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    });
+
+    res.json({ success: true });
   } catch (err) {
-    console.error('Task certificate self-resend failed:', err);
-    res.status(500).json({ error: 'Failed to resend certificate email.' });
+    console.error('Task certificate resend request failed:', err);
+    res.status(500).json({ error: 'Failed to send request.' });
   }
 });
 
