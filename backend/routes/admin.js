@@ -4,6 +4,10 @@ const crypto  = require('crypto');
 const User    = require('../models/User');
 const Batch   = require('../models/Batch');
 const Task    = require('../models/Task');
+const Submission = require('../models/Submission');
+const TaskCertificate = require('../models/TaskCertificate');
+const Certificate = require('../models/Certificate');
+const Notification = require('../models/Notification');
 const auth    = require('../middleware/authMiddleware');
 const mailer  = require('../utils/mailer');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
@@ -271,7 +275,57 @@ router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
 
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    await Submission.deleteMany({ intern: user._id });
+    await TaskCertificate.deleteMany({ student: user._id });
+    await Certificate.deleteMany({ student: user._id });
+    await Notification.deleteMany({
+      $or: [{ userId: user._id }, { relatedUser: user._id }],
+    });
+
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req, res) => {
+  try {
+    const [allUserIds, allTaskIds] = await Promise.all([
+      User.find({}).distinct('_id'),
+      Task.find({}).distinct('_id'),
+    ]);
+
+    const orphanedSubmissions = await Submission.deleteMany({
+      $or: [{ intern: { $nin: allUserIds } }, { task: { $nin: allTaskIds } }],
+    });
+    const orphanedTaskCerts = await TaskCertificate.deleteMany({
+      $or: [{ student: { $nin: allUserIds } }, { task: { $nin: allTaskIds } }],
+    });
+    const orphanedCerts = await Certificate.deleteMany({ student: { $nin: allUserIds } });
+
+    const remainingTaskCertIds = await TaskCertificate.find({}).distinct('certificateId');
+    const remainingCertIds = await Certificate.find({}).distinct('certificateId');
+    const remainingValidCertIds = [...remainingTaskCertIds, ...remainingCertIds];
+
+    const orphanedNotifications = await Notification.deleteMany({
+      $or: [
+        { userId: { $exists: true, $ne: null, $nin: allUserIds } },
+        { relatedUser: { $exists: true, $ne: null, $nin: allUserIds } },
+        { task: { $exists: true, $ne: null, $nin: allTaskIds } },
+        { 'meta.certificateId': { $exists: true, $ne: null, $nin: remainingValidCertIds } },
+      ],
+    });
+
+    res.json({
+      success: true,
+      deleted: {
+        submissions: orphanedSubmissions.deletedCount,
+        taskCertificates: orphanedTaskCerts.deletedCount,
+        certificates: orphanedCerts.deletedCount,
+        notifications: orphanedNotifications.deletedCount,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

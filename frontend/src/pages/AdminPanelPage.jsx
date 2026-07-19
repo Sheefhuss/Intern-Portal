@@ -26,6 +26,27 @@ export default function AdminPanelPage() {
   const [editBatchName, setEditBatchName]   = useState("");
   const [creatingBatch, setCreatingBatch]   = useState(false);
   const [expandedBatch, setExpandedBatch]   = useState(null);
+  const [cleaningUp, setCleaningUp] = useState(false);
+
+  const cleanupOrphanedData = async () => {
+    if (!window.confirm("This permanently deletes leftover submissions, certificates, and notifications tied to already-deleted tasks or interns. Continue?")) return;
+    setCleaningUp(true);
+    try {
+      const result = await AuthService.apiFetch("/admin/maintenance/cleanup-orphaned-data", { method: "POST" });
+      const d = result.deleted || {};
+      alert(
+        `Cleaned up:\n` +
+        `${d.notifications || 0} notifications\n` +
+        `${d.submissions || 0} submissions\n` +
+        `${d.taskCertificates || 0} task certificates\n` +
+        `${d.certificates || 0} internship certificates`
+      );
+    } catch (err) {
+      alert(err.message || "Cleanup failed.");
+    } finally {
+      setCleaningUp(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -236,23 +257,38 @@ export default function AdminPanelPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {[
-          ["invite", `Invite Intern (${invitedInterns.length} pending)`],
-          ["registry", `Full Registry (${registry.length})`],
-          ["batches", `Batches (${batches.length})`],
-          ["certificates", "Certificates"],
-          ["taskCertificates", "Task Certificates"],
-          ["offerLetters", "Offer Letters"],
-        ].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding: "9px 20px", border: "none", borderRadius: 8,
-            fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            background: tab === id ? "#7C3AED" : "#fff",
-            color: tab === id ? "#fff" : "#6B7280",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-          }}>{label}</button>
-        ))}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[
+            ["invite", `Invite Intern (${invitedInterns.length} pending)`],
+            ["registry", `Full Registry (${registry.length})`],
+            ["batches", `Batches (${batches.length})`],
+            ["certificates", "Certificates"],
+            ["taskCertificates", "Task Certificates"],
+            ["offerLetters", "Offer Letters"],
+          ].map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} style={{
+              padding: "9px 20px", border: "none", borderRadius: 8,
+              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              background: tab === id ? "#7C3AED" : "#fff",
+              color: tab === id ? "#fff" : "#6B7280",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+            }}>{label}</button>
+          ))}
+        </div>
+        <button
+          onClick={cleanupOrphanedData}
+          disabled={cleaningUp}
+          title="Delete leftover submissions, certificates, and notifications tied to already-deleted tasks or interns"
+          style={{
+            padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: "1px solid #FCA5A5", background: "#fff", color: "#DC2626",
+            cursor: cleaningUp ? "not-allowed" : "pointer", fontFamily: "inherit",
+            opacity: cleaningUp ? 0.6 : 1,
+          }}
+        >
+          {cleaningUp ? "Cleaning…" : "🧹 Clean Up Orphaned Data"}
+        </button>
       </div>
 
       {tab === "invite" && (

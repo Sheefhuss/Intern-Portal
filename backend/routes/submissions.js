@@ -87,6 +87,7 @@ router.patch('/:id/submit', auth, async (req, res) => {
         type: 'task',
         text: `${intern?.name || 'An intern'} submitted "${task.title}" for review.`,
         task: task._id,
+        relatedUser: req.user.id,
       });
       socketManager.emitToAll('notification:new', {
         id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
