@@ -127,8 +127,9 @@ export default function CertificateIssuePanel() {
         </button>
       </div>
       <p style={{ fontSize: 12, color: COLORS.muted, marginBottom: 16 }}>
-        Interns land here once all their assigned tasks are reviewed. Upload the finished
-        certificate PDF for each — it's emailed to them directly, nothing is generated automatically.
+        Interns land here once they're marked <strong>Completed</strong> in Full Registry <em>and</em> every
+        assigned task is reviewed. Upload the finished certificate PDF for each — it's emailed to them
+        directly, nothing is generated automatically.
       </p>
 
       <div style={{
@@ -137,7 +138,7 @@ export default function CertificateIssuePanel() {
         borderRadius: 8, marginBottom: 16,
       }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>
-          Intern's tasks all done but not showing up above?
+          Intern's tasks all done and marked Completed but not showing up above?
         </span>
         <select
           value={recheckId}

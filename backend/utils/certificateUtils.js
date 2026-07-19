@@ -12,6 +12,10 @@ const generateCertificateId = () => {
 };
 
 const maybeIssueCertificate = async (internId) => {
+  const intern = await User.findById(internId).select('name email domain batch status');
+  if (!intern) return;
+  if (intern.status !== 'completed') return; // admin must mark the internship Completed first
+
   const allSubs = await Submission.find({ intern: internId });
   if (!allSubs.length) return;
   if (!allSubs.every(s => s.status === 'reviewed')) return;
@@ -27,15 +31,6 @@ const maybeIssueCertificate = async (internId) => {
     return existing;
   }
 
-  const intern = await User.findById(internId).select('name email domain batch');
-  if (!intern) return;
-
-  // Atomic upsert instead of "fetch then save": this is what used to leave an
-  // intern stuck forever after a certificate already existed for them. The old
-  // create/save path could throw on a stale document version or a duplicate-key
-  // race and never actually persist the refreshed certificate — with no
-  // automatic retry and no admin-visible signal. findOneAndUpdate with upsert
-  // does the create-or-refresh in a single atomic write, every time.
   const certificate = await Certificate.findOneAndUpdate(
     { student: internId },
     {

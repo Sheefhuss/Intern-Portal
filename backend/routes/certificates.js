@@ -209,10 +209,13 @@ router.post('/:certificateId/issue', auth, async (req, res) => {
 
     const certificate = await Certificate
       .findOne({ certificateId: req.params.certificateId })
-      .populate('student', 'name email');
+      .populate('student', 'name email status');
 
     if (!certificate) return res.status(404).json({ error: 'Certificate not found.' });
     if (!certificate.student) return res.status(404).json({ error: 'Intern not found for this certificate.' });
+    if (certificate.student.status !== 'completed')
+      return res.status(400).json({ error: 'This intern is not marked Completed. Mark their internship complete in Full Registry first.' });
+
 
     try {
       await sendCertificateEmail({

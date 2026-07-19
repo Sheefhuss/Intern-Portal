@@ -118,7 +118,7 @@ export default function AdminPanelPage() {
   };
 
   const completeUser = async (id, name) => {
-    if (!window.confirm(`Mark ${name}'s internship as completed? They'll move to Past Interns and won't be able to log in as an active intern.`)) return;
+    if (!window.confirm(`Mark ${name}'s internship as completed? They'll move to Past Interns, won't be able to log in as an active intern, and — if all their tasks are already reviewed — their certificate will become emailable from the Certificates tab.`)) return;
     setActing(id);
     try {
       const updated = await AuthService.apiFetch(`/admin/users/${id}/complete`, { method: "PATCH" });

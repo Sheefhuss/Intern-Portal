@@ -6,6 +6,7 @@ const Batch   = require('../models/Batch');
 const Task    = require('../models/Task');
 const auth    = require('../middleware/authMiddleware');
 const mailer  = require('../utils/mailer');
+const { maybeIssueCertificate } = require('../utils/certificateUtils');
 
 const generatePasscode = () => crypto.randomInt(100000, 1000000).toString(); 
 
@@ -96,6 +97,12 @@ router.patch('/users/:id/complete', auth, requireAdmin, async (req, res) => {
     user.revokedAt    = null;
     user.revokedBy    = null;
     await user.save();
+
+    try {
+      await maybeIssueCertificate(user._id);
+    } catch (certErr) {
+      console.error(`Certificate check failed after marking ${user._id} completed:`, certErr);
+    }
 
     const safeUser = await User.findById(user._id).select(safeFields);
     res.json(safeUser);
