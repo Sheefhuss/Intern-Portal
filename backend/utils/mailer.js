@@ -75,6 +75,37 @@ exports.sendOfferLetterEmail = async ({ to, name, passcode, domain, batch }) => 
   });
 };
 
+exports.sendOfferLetterPdfEmail = async ({ to, name, domain, batch, pdfBase64, pdfFilename }) => {
+  await sendBrevoEmail({
+    to,
+    toName: name,
+    subject: `Your Internship Offer Letter — Enginow${domain ? ` (${domain})` : ''}`,
+    html: `
+      <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#fff;border-radius:16px;border:1px solid #E5E7EB">
+        <div style="text-align:center;margin-bottom:24px">
+          <img src="${LOGO_URL}" alt="Enginow" width="48" height="48" style="border-radius:12px;display:inline-block">
+        </div>
+        <h2 style="color:#111827;font-size:20px;margin:0 0 8px">Offer of Internship</h2>
+        <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px">
+          Dear ${name},
+        </p>
+        <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px">
+          Please find attached your official internship offer letter${domain ? ` for <strong>${domain}</strong>` : ''}${batch ? ` (batch: <strong>${batch}</strong>)` : ''}.
+        </p>
+        <p style="color:#374151;font-size:14px;line-height:1.7;margin:24px 0 0">
+          Welcome aboard — we look forward to having you on the team.
+        </p>
+        <p style="color:#374151;font-size:14px;line-height:1.7;margin:4px 0 0">
+          Warm regards,<br/>Enginow Internship Team
+        </p>
+      </div>
+    `,
+    attachments: pdfBase64
+      ? [{ filename: pdfFilename || `offer-letter-${name.replace(/\s+/g, '-')}.pdf`, content: pdfBase64 }]
+      : undefined,
+  });
+};
+
 exports.sendPasswordResetEmail = async ({ to, name, token }) => {
   const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 

@@ -19,13 +19,22 @@ export default function CertificateIssuePanel() {
   const [issuing, setIssuing] = useState(null);
   const [justIssued, setJustIssued] = useState(null);
   const [tab, setTab] = useState("pending");
+  const [recheckId, setRecheckId] = useState("");
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckMsg, setRecheckMsg] = useState("");
+
+  const [interns, setInterns] = useState([]);
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await AuthService.apiFetch("/certificates");
+      const [data, internList] = await Promise.all([
+        AuthService.apiFetch("/certificates"),
+        AuthService.apiFetch("/admin/users?role=intern"),
+      ]);
       setCertificates(data);
+      setInterns(internList);
     } catch (err) {
       setError(err.message || "Failed to load certificates.");
     } finally {
@@ -34,6 +43,27 @@ export default function CertificateIssuePanel() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const recheck = async () => {
+    if (!recheckId) return;
+    setRechecking(true);
+    setRecheckMsg("");
+    try {
+      const result = await AuthService.apiFetch(`/tasks/certificates/${recheckId}/resend`, {
+        method: "POST",
+      });
+      setRecheckMsg(
+        result?.certificate
+          ? "Certificate refreshed — check the Awaiting tab below."
+          : "All of this intern's tasks aren't reviewed yet, or nothing changed."
+      );
+      await load();
+    } catch (err) {
+      setRecheckMsg(err.message || "Recheck failed.");
+    } finally {
+      setRechecking(false);
+    }
+  };
 
   const pending = certificates.filter((c) => !c.emailSent);
   const issued = certificates.filter((c) => c.emailSent);
@@ -94,6 +124,44 @@ export default function CertificateIssuePanel() {
         Interns land here once all their assigned tasks are reviewed. Upload the finished
         certificate PDF for each — it's emailed to them directly, nothing is generated automatically.
       </p>
+
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        padding: "10px 12px", background: "#FAFAFA", border: `1px solid ${COLORS.border}`,
+        borderRadius: 8, marginBottom: 16,
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>
+          Intern's tasks all done but not showing up above?
+        </span>
+        <select
+          value={recheckId}
+          onChange={(e) => { setRecheckId(e.target.value); setRecheckMsg(""); }}
+          style={{
+            fontSize: 12, padding: "6px 8px", borderRadius: 6,
+            border: "1px solid #D1D5DB", fontFamily: "inherit", minWidth: 200,
+          }}
+        >
+          <option value="">Select an intern…</option>
+          {interns.map((i) => (
+            <option key={i._id} value={i._id}>{i.name} ({i.email})</option>
+          ))}
+        </select>
+        <button
+          onClick={recheck}
+          disabled={!recheckId || rechecking}
+          style={{
+            padding: "6px 14px",
+            background: !recheckId || rechecking ? "#9CA3AF" : "#7C3AED",
+            color: "#fff", border: "none", borderRadius: 6, fontSize: 11.5, fontWeight: 600,
+            cursor: !recheckId || rechecking ? "not-allowed" : "pointer", fontFamily: "inherit",
+          }}
+        >
+          {rechecking ? "Checking…" : "Recheck certificate"}
+        </button>
+        {recheckMsg && (
+          <span style={{ fontSize: 11.5, color: "#374151" }}>{recheckMsg}</span>
+        )}
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {[

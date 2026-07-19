@@ -207,6 +207,40 @@ router.patch('/interns/:id/resend-passcode', auth, requireAdmin, async (req, res
   }
 });
 
+router.post('/interns/:id/offer-letter', auth, requireManager, async (req, res) => {
+  try {
+    const { pdfBase64, filename } = req.body;
+    if (!pdfBase64 || !pdfBase64.trim())
+      return res.status(400).json({ error: 'An offer letter PDF (base64) is required.' });
+
+    const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
+
+    const intern = await User.findById(req.params.id);
+    if (!intern) return res.status(404).json({ error: 'Intern not found.' });
+
+    try {
+      await mailer.sendOfferLetterPdfEmail({
+        to: intern.email,
+        name: intern.name,
+        domain: intern.domain,
+        batch: intern.batch,
+        pdfBase64: cleanBase64,
+        pdfFilename: filename || `offer-letter-${intern.name.replace(/\s+/g, '-')}.pdf`,
+      });
+    } catch (emailErr) {
+      console.error('Offer letter email failed for', intern.email, ':', emailErr.message);
+      return res.status(502).json({ error: `Offer letter email failed: ${emailErr.message}` });
+    }
+
+    intern.offerLetterSentAt = new Date();
+    await intern.save();
+
+    res.json({ success: true, offerLetterSentAt: intern.offerLetterSentAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
   try {
     if (req.params.id === req.user.id)

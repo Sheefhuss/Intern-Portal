@@ -154,7 +154,19 @@ router.patch('/:submissionId/review', auth, async (req, res) => {
       { new: true }
     );
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
-    await maybeIssueCertificate(submission.intern);
+
+    // The review itself has already been saved above. Certificate issuance is a
+    // secondary side-effect — if it fails (e.g. a stale certificate record hits a
+    // validation error), we don't want that to make the review action itself look
+    // like it failed, and we don't want the intern to be silently stuck with no
+    // certificate and no error either. So: never throw past this point, but log
+    // loudly so it's easy to notice and the admin can hit "Recheck certificate".
+    try {
+      await maybeIssueCertificate(submission.intern);
+    } catch (certErr) {
+      console.error(`Certificate issuance failed for intern ${submission.intern} after review:`, certErr);
+    }
+
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });

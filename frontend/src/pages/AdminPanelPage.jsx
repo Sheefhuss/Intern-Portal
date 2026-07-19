@@ -5,6 +5,7 @@ import FullRegistry from "./admin/FullRegistry";
 import BatchesTab from "./admin/BatchesTab";
 import { DOMAINS } from "../data/database";
 import CertificateIssuePanel from "./admin/CertificateIssuePanel";
+import OfferLetterPanel from "./admin/OfferLetterPanel";
 
 export default function AdminPanelPage() {
   const [tab, setTab] = useState("invite");
@@ -240,6 +241,7 @@ export default function AdminPanelPage() {
           ["registry", `Full Registry (${registry.length})`],
           ["batches", `Batches (${batches.length})`],
           ["certificates", "Certificates"],
+          ["offerLetters", "Offer Letters"],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             padding: "9px 20px", border: "none", borderRadius: 8,
@@ -307,6 +309,7 @@ export default function AdminPanelPage() {
       )}
 
       {tab === "certificates" && <CertificateIssuePanel />}
+      {tab === "offerLetters" && <OfferLetterPanel />}
     </div>
   );
 }

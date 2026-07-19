@@ -29,6 +29,8 @@ const userSchema = new mongoose.Schema({
   photoBase64: { type: String, default: '' },
   otp: { type: String, default: null },
   otpExpires: { type: Date, default: null },
+
+  offerLetterSentAt: { type: Date, default: null },
 });
 
 module.exports = mongoose.model('User', userSchema);
