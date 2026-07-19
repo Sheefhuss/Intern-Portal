@@ -183,10 +183,16 @@ router.get('/', auth, async (req, res) => {
 
     const certificates = await Certificate
       .find({})
-      .populate('student', 'name email domain batch')
+      .populate('student', 'name email domain batch status')
       .sort({ issuedAt: -1 });
 
-    res.json(certificates);
+    // Pending certificates only surface once the intern is actually marked
+    // Completed — a cert that was auto-created before that rule existed (or
+    // for someone later reactivated) shouldn't sit in the queue as if it's
+    // ready to send. Already-issued ones stay visible either way — that's history.
+    const visible = certificates.filter(c => c.emailSent || c.student?.status === 'completed');
+
+    res.json(visible);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
