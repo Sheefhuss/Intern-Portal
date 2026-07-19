@@ -189,8 +189,6 @@ const issueTaskCertificate = async (submission) => {
       { new: true, upsert: true }
     );
   } catch (err) {
-    // Duplicate-key race (two review actions for the same task/intern at
-    // once) — just fetch whatever ended up persisted instead of failing.
     certificate = await TaskCertificate.findOne({ student: intern._id, task: task._id });
   }
   if (!certificate) return null;
@@ -243,9 +241,35 @@ const issueTaskCertificate = async (submission) => {
   return certificate;
 };
 
+const resendTaskCertificate = async (certificateId) => {
+  const certificate = await TaskCertificate.findOne({ certificateId }).populate('student', 'name email');
+  if (!certificate) return null;
+  if (!certificate.student) return null;
+
+  const pdfBuffer = await renderTaskCertificatePdf(certificate);
+
+  await sendTaskCertificateEmail({
+    to: certificate.student.email,
+    internName: certificate.student.name,
+    taskTitle: certificate.taskTitle,
+    domain: certificate.domain,
+    batch: certificate.batch,
+    certificateId: certificate.certificateId,
+    issuedAt: certificate.issuedAt,
+    verifyUrl: `${BASE_URL}/api/task-certificates/${certificate.certificateId}/view`,
+    pdfBase64: pdfBuffer.toString('base64'),
+    pdfFilename: `task-certificate-${certificate.certificateId}.pdf`,
+  });
+
+  certificate.emailSent = true;
+  await certificate.save();
+  return certificate;
+};
+
 module.exports = {
   generateTaskCertificateId,
   renderTaskCertificateHtml,
   renderTaskCertificatePdf,
   issueTaskCertificate,
+  resendTaskCertificate,
 };
