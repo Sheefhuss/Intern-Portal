@@ -149,12 +149,13 @@ const renderTaskCertificatePdf = async (cert) => {
       return { width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
     });
 
-    return await page.pdf({
+    const pdfBytes = await page.pdf({
       width: `${box.width}px`,
       height: `${box.height}px`,
       printBackground: true,
       margin: { top: 0, bottom: 0, left: 0, right: 0 },
     });
+    return Buffer.from(pdfBytes);
   } finally {
     await page.close();
   }
