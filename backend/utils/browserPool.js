@@ -2,15 +2,15 @@ let browserPromise = null;
 
 const getBrowser = () => {
   if (!browserPromise) {
+
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
-      const chromium = require('@sparticuz/chromium');
+      const chromium = require('@sparticuz/chromium').default;
       const puppeteerCore = require('puppeteer-core');
       browserPromise = chromium.executablePath().then((executablePath) =>
         puppeteerCore.launch({
           args: chromium.args,
-          defaultViewport: chromium.defaultViewport,
           executablePath,
-          headless: chromium.headless,
+          headless: true,
         })
       ).catch((err) => {
         browserPromise = null;
