@@ -1,14 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const Certificate = require('../models/Certificate');
-const Notification = require('../models/Notification');
-const auth = require('../middleware/authMiddleware');
-const QRCode = require('qrcode');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { getBrowser } = require('../utils/browserPool');
-const { sendCertificateEmail } = require('../utils/sendEmail');
-const socketManager = require('../utils/socketManager');
+const QRCode = require('qrcode');
+const TaskCertificate = require('../models/TaskCertificate');
+const Task = require('../models/Task');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
+const socketManager = require('./socketManager');
+const { getBrowser } = require('./browserPool');
+const { sendTaskCertificateEmail } = require('./sendEmail');
 
 const LOGO_PATH = path.join(__dirname, '../../frontend/public/enginow.png');
 let LOGO_B64 = '';
@@ -21,13 +21,19 @@ try {
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
-const renderCertificateHtml = async (cert) => {
+const generateTaskCertificateId = () => {
+  const year = new Date().getFullYear();
+  const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `TCERT-${year}-${random}`;
+};
+
+const renderTaskCertificateHtml = async (cert) => {
   const issued = new Date(cert.issuedAt).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'long', year: 'numeric',
     timeZone: 'Asia/Kolkata',
   });
 
-  const verifyUrl = `${BASE_URL}/api/certificates/${cert.certificateId}/view`;
+  const verifyUrl = `${BASE_URL}/api/task-certificates/${cert.certificateId}/view`;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
     width: 100, margin: 1,
     color: { dark: '#7C3AED', light: '#ffffff' },
@@ -37,7 +43,7 @@ const renderCertificateHtml = async (cert) => {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Certificate — ${cert.certificateId}</title>
+<title>Task Certificate — ${cert.certificateId}</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
@@ -97,12 +103,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
           <div class="org">Enginow<br>Internship Program</div>
         </div>
         <div class="lbl">Certificate of Achievement</div>
-        <div class="title">Certificate of<br>Completion</div>
+        <div class="title">Task Completion<br>Certificate</div>
         <div class="divider"><div class="dline"></div><div class="ddot"></div><div class="dline"></div></div>
         <div class="sub">This is proudly presented to</div>
         <div class="name">${cert.student?.name || 'Intern'}</div>
         <div class="body-text">
-          For successfully completing all assigned tasks in the <strong>${cert.domain || 'Internship'} Program</strong>${cert.batch ? ', <strong>Batch ' + cert.batch + '</strong>' : ''}, reviewed and approved by the Enginow team. This achievement reflects a strong commitment to excellence and professional growth.
+          For successfully completing the task <strong>"${cert.taskTitle || 'Assigned Task'}"</strong>${cert.domain ? ` in the <strong>${cert.domain} Program</strong>` : ''}${cert.batch ? ', <strong>Batch ' + cert.batch + '</strong>' : ''}, reviewed and approved by the Enginow team. This achievement reflects a strong commitment to excellence and professional growth.
         </div>
         <div class="footer">
           <div>
@@ -124,15 +130,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
   </div>
   <div class="actions">
     <button class="btn ghost" onclick="window.close()">Close</button>
-    <a class="btn primary" href="/api/certificates/${cert.certificateId}/download" style="text-decoration:none;display:inline-block">⬇ Download PDF</a>
+    <a class="btn primary" href="/api/task-certificates/${cert.certificateId}/download" style="text-decoration:none;display:inline-block">⬇ Download PDF</a>
   </div>
 </div>
 </body>
 </html>`;
 };
 
-const renderCertificatePdf = async (cert) => {
-  const html = await renderCertificateHtml(cert);
+const renderTaskCertificatePdf = async (cert) => {
+  const html = await renderTaskCertificateHtml(cert);
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
@@ -154,147 +160,92 @@ const renderCertificatePdf = async (cert) => {
     await page.close();
   }
 };
+const issueTaskCertificate = async (submission) => {
+  if (!submission) return null;
+  const existing = await TaskCertificate.findOne({ submission: submission._id });
+  if (existing) return existing;
 
-router.get('/logo.png', (req, res) => {
-  if (!fs.existsSync(LOGO_PATH)) return res.status(404).end();
-  res.set('Content-Type', 'image/png');
-  res.set('Cache-Control', 'public, max-age=86400');
-  fs.createReadStream(LOGO_PATH).pipe(res);
-});
+  const [task, intern] = await Promise.all([
+    Task.findById(submission.task),
+    User.findById(submission.intern).select('name email domain batch'),
+  ]);
+  if (!task || !intern) return null;
 
-router.get('/:certificateId/qr.png', async (req, res) => {
+  let certificate;
   try {
-    const verifyUrl = `${BASE_URL}/api/certificates/${req.params.certificateId}/view`;
-    const qrBuffer = await QRCode.toBuffer(verifyUrl, {
-      width: 140, margin: 1, color: { dark: '#7C3AED', light: '#ffffff' },
+    certificate = await TaskCertificate.findOneAndUpdate(
+      { student: intern._id, task: task._id },
+      {
+        $setOnInsert: {
+          student: intern._id,
+          task: task._id,
+          submission: submission._id,
+          certificateId: generateTaskCertificateId(),
+          taskTitle: task.title,
+          domain: intern.domain || '',
+          batch: intern.batch || '',
+        },
+      },
+      { new: true, upsert: true }
+    );
+  } catch (err) {
+    // Duplicate-key race (two review actions for the same task/intern at
+    // once) — just fetch whatever ended up persisted instead of failing.
+    certificate = await TaskCertificate.findOne({ student: intern._id, task: task._id });
+  }
+  if (!certificate) return null;
+  if (certificate.emailSent) return certificate;
+
+  const certWithStudent = { ...certificate.toObject(), student: { name: intern.name } };
+  const pdfBuffer = await renderTaskCertificatePdf(certWithStudent);
+
+  try {
+    await sendTaskCertificateEmail({
+      to: intern.email,
+      internName: intern.name,
+      taskTitle: task.title,
+      domain: intern.domain,
+      batch: intern.batch,
+      certificateId: certificate.certificateId,
+      issuedAt: certificate.issuedAt,
+      verifyUrl: `${BASE_URL}/api/task-certificates/${certificate.certificateId}/view`,
+      pdfBase64: pdfBuffer.toString('base64'),
+      pdfFilename: `task-certificate-${certificate.certificateId}.pdf`,
     });
-    res.set('Content-Type', 'image/png');
-    res.set('Cache-Control', 'public, max-age=86400');
-    res.send(qrBuffer);
-  } catch (err) {
-    res.status(500).end();
-  }
-});
-
-router.get('/', auth, async (req, res) => {
-  try {
-    if (!['admin', 'hr'].includes(req.user.role))
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const certificates = await Certificate
-      .find({})
-      .populate('student', 'name email domain batch')
-      .sort({ issuedAt: -1 });
-
-    res.json(certificates);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/:certificateId/issue', auth, async (req, res) => {
-  try {
-    if (!['admin', 'hr'].includes(req.user.role))
-      return res.status(403).json({ error: 'Access denied.' });
-
-    const { pdfBase64, filename } = req.body;
-    if (!pdfBase64 || !pdfBase64.trim())
-      return res.status(400).json({ error: 'A certificate PDF (base64) is required.' });
-
-    const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',').pop() : pdfBase64;
-
-    const certificate = await Certificate
-      .findOne({ certificateId: req.params.certificateId })
-      .populate('student', 'name email');
-
-    if (!certificate) return res.status(404).json({ error: 'Certificate not found.' });
-    if (!certificate.student) return res.status(404).json({ error: 'Intern not found for this certificate.' });
-
-    try {
-      await sendCertificateEmail({
-        to: certificate.student.email,
-        internName: certificate.student.name,
-        domain: certificate.domain,
-        batch: certificate.batch,
-        certificateId: certificate.certificateId,
-        issuedAt: certificate.issuedAt || certificate.createdAt,
-        pdfBase64: cleanBase64,
-        pdfFilename: filename || `certificate-${certificate.certificateId}.pdf`,
-      });
-    } catch (emailErr) {
-      console.error('Manual certificate email failed for', certificate.student.email, ':', emailErr.message);
-      return res.status(502).json({ error: `Certificate email failed: ${emailErr.message}` });
-    }
-
     certificate.emailSent = true;
     await certificate.save();
+  } catch (emailErr) {
+    console.error(`Task certificate email failed for ${intern.email} (task ${task._id}):`, emailErr.message);
+  }
 
-    const internNotif = await Notification.create({
-      userId: certificate.student._id,
+  try {
+    const notif = await Notification.create({
+      userId: intern._id,
       role: 'intern',
       type: 'certificate',
-      text: `🎓 Your Certificate of Completion for the ${certificate.domain || 'Internship'} program${certificate.batch ? `, Batch ${certificate.batch}` : ''} has been issued and emailed to you.`,
+      text: `🎉 You've completed "${task.title}"! Your task completion certificate has been emailed to you.`,
       meta: { certificateId: certificate.certificateId },
     });
-    socketManager.emitToUser(certificate.student._id, 'notification:new', {
-      id: internNotif._id,
-      role: internNotif.role,
-      type: internNotif.type,
-      text: internNotif.text,
+    socketManager.emitToUser(intern._id, 'notification:new', {
+      id: notif._id,
+      role: notif.role,
+      type: notif.type,
+      text: notif.text,
       read: false,
-      time: new Date(internNotif.createdAt).toLocaleDateString('en-IN', {
+      time: new Date(notif.createdAt).toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata',
       }),
     });
-
-    res.json({ success: true, certificate });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (notifyErr) {
+    console.error('Task certificate notification failed:', notifyErr.message);
   }
-});
 
-router.get('/my', auth, async (req, res) => {
-  try {
-    if (req.user.role !== 'intern')
-      return res.status(403).json({ error: 'Access denied.' });
+  return certificate;
+};
 
-    const certificate = await Certificate.findOne({ student: req.user.id });
-    res.json(certificate || null);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-router.get('/:certificateId/download', async (req, res) => {
-  try {
-    const certificate = await Certificate
-      .findOne({ certificateId: req.params.certificateId })
-      .populate('student', 'name');
-
-    if (!certificate) return res.status(404).send('Certificate not found.');
-
-    const pdfBuffer = await renderCertificatePdf(certificate);
-    res.set('Content-Type', 'application/pdf');
-    res.set('Content-Disposition', `attachment; filename="certificate-${certificate.certificateId}.pdf"`);
-    res.send(pdfBuffer);
-  } catch (err) {
-    console.error('Certificate PDF generation failed:', err);
-    res.status(500).send('Error generating certificate PDF.');
-  }
-});
-
-router.get('/:certificateId/view', async (req, res) => {
-  try {
-    const certificate = await Certificate
-      .findOne({ certificateId: req.params.certificateId })
-      .populate('student', 'name');
-      
-    if (!certificate) return res.status(404).send('Certificate not found.');
-    
-    const html = await renderCertificateHtml(certificate);
-    res.send(html);
-  } catch (err) {
-    res.status(500).send('Error loading certificate.');
-  }
-});
-
-module.exports = router;
+module.exports = {
+  generateTaskCertificateId,
+  renderTaskCertificateHtml,
+  renderTaskCertificatePdf,
+  issueTaskCertificate,
+};

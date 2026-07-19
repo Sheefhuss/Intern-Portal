@@ -68,6 +68,70 @@ async function sendCertificateEmail({ to, internName, domain, batch, certificate
   });
 }
 
+async function sendTaskCertificateEmail({ to, internName, taskTitle, domain, batch, certificateId, issuedAt, verifyUrl, pdfBase64, pdfFilename }) {
+  const issued = new Date(issuedAt).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  });
+  const logoDataUri = `${BASE_URL}/api/certificates/logo.png`;
+  const qrDataUri = `${BASE_URL}/api/task-certificates/${certificateId}/qr.png`;
+
+  const html = `
+      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
+        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
+          <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
+          <div style="padding:36px 40px;">
+            <table style="margin-bottom:24px;"><tr>
+              <td><img src="${logoDataUri}" alt="Enginow" width="40" height="40" style="border-radius:8px;"></td>
+              <td style="padding-left:12px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#7C3AED;">
+                Enginow Internship Program
+              </td>
+            </tr></table>
+            <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
+              Task Completion Certificate
+            </p>
+            <h1 style="font-size:26px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
+              Great work, ${internName}! 🎉
+            </h1>
+            <p style="font-size:14px;color:#374151;line-height:1.7;">
+              You have successfully completed the task <strong>"${taskTitle}"</strong>${domain ? ` in the <strong>${domain} Program</strong>` : ''}${batch ? `, Batch <strong>${batch}</strong>` : ''},
+              reviewed and approved by the Enginow team.
+            </p>
+            <table style="width:100%;margin-top:26px;padding-top:18px;border-top:1px solid #F3F0FF;">
+              <tr>
+                <td>
+                  <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;">Date of Issue</div>
+                  <div style="font-size:14px;font-weight:600;color:#1F1235;">${issued}</div>
+                </td>
+                <td>
+                  <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;">Certificate ID</div>
+                  <div style="font-size:13px;font-weight:600;color:#7C3AED;font-family:'Courier New',monospace;">${certificateId}</div>
+                </td>
+                <td style="text-align:right;">
+                  <img src="${qrDataUri}" alt="Verify" width="70" height="70" style="border-radius:6px;border:1.5px solid #EDE9FE;">
+                </td>
+              </tr>
+            </table>
+            <table style="width:100%;margin-top:28px;"><tr>
+              ${verifyUrl ? `<td><a href="${verifyUrl}" style="display:block;text-align:center;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:#fff;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px">View Certificate</a></td>` : ''}
+            </tr></table>
+          </div>
+          <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
+        </div>
+      </div>
+    `;
+
+  return sendBrevoEmail({
+    to,
+    toName: internName,
+    subject: `🎉 Task Completed — "${taskTitle}"`,
+    html,
+    attachments: pdfBase64
+      ? [{ filename: pdfFilename || `task-certificate-${certificateId}.pdf`, content: pdfBase64 }]
+      : undefined,
+  });
+}
+
 async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) {
   const formattedTime = time
     ? new Date(time).toLocaleString('en-IN', {
@@ -171,4 +235,4 @@ async function sendAnnouncementEmail({ to, internName, text }) {
   return sendBrevoEmail({ to, toName: internName, subject: '📢 New Announcement from Enginow Portal', html });
 }
 
-module.exports = { sendCertificateEmail, sendMeetingEmail, sendTaskEmail, sendAnnouncementEmail };
+module.exports = { sendCertificateEmail, sendTaskCertificateEmail, sendMeetingEmail, sendTaskEmail, sendAnnouncementEmail };

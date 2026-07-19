@@ -8,6 +8,7 @@ const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
 const { isIndividual, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
+const { issueTaskCertificate } = require('../utils/taskCertificateUtils');
 const { sendTaskEmail } = require('../utils/sendEmail');
 const socketManager = require('../utils/socketManager');
 
@@ -155,12 +156,12 @@ router.patch('/:submissionId/review', auth, async (req, res) => {
     );
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
 
-    // The review itself has already been saved above. Certificate issuance is a
-    // secondary side-effect — if it fails (e.g. a stale certificate record hits a
-    // validation error), we don't want that to make the review action itself look
-    // like it failed, and we don't want the intern to be silently stuck with no
-    // certificate and no error either. So: never throw past this point, but log
-    // loudly so it's easy to notice and the admin can hit "Recheck certificate".
+    try {
+      await issueTaskCertificate(submission);
+    } catch (taskCertErr) {
+      console.error(`Task certificate issuance failed for submission ${submission._id}:`, taskCertErr);
+    }
+
     try {
       await maybeIssueCertificate(submission.intern);
     } catch (certErr) {
