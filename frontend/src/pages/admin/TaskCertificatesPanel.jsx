@@ -106,19 +106,6 @@ export default function TaskCertificatesPanel() {
                   {cert.emailSent ? "✓ Emailed" : "⏳ Not yet emailed"}
                 </span>
 
-                <a
-                  href={`${AuthService.getApiBase()}/task-certificates/${cert.certificateId}/download`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    padding: "7px 14px", background: "#fff", color: "#7C3AED",
-                    border: "1.5px solid #DDD6FE", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
-                    textDecoration: "none",
-                  }}
-                >
-                  ⬇ Download
-                </a>
-
                 <button
                   onClick={() => resend(cert)}
                   disabled={isResending}

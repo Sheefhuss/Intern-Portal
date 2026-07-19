@@ -66,19 +66,6 @@ export default function MyTaskCertificates() {
                 </div>
               </div>
 
-              <a
-                href={`${AuthService.getApiBase()}/task-certificates/${cert.certificateId}/download`}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  padding: "6px 12px", background: "#fff", color: "#7C3AED",
-                  border: "1.5px solid #DDD6FE", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                ⬇ Download
-              </a>
-
               <button
                 onClick={() => requestResend(cert)}
                 disabled={isResending}

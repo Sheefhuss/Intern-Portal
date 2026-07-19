@@ -129,8 +129,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#ede9f8;min-height:100v
     <div class="bot-bar"></div>
   </div>
   <div class="actions">
-    <button class="btn ghost" onclick="window.close()">Close</button>
-    <a class="btn primary" href="/api/task-certificates/${cert.certificateId}/download" style="text-decoration:none;display:inline-block">⬇ Download PDF</a>
+    <button class="btn primary" onclick="window.close()">Close</button>
   </div>
 </div>
 </body>

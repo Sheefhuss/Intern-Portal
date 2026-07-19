@@ -5,7 +5,7 @@ const TaskCertificate = require('../models/TaskCertificate');
 const Notification = require('../models/Notification');
 const socketManager = require('../utils/socketManager');
 const auth = require('../middleware/authMiddleware');
-const { renderTaskCertificateHtml, renderTaskCertificatePdf, resendTaskCertificate } = require('../utils/taskCertificateUtils');
+const { renderTaskCertificateHtml, resendTaskCertificate } = require('../utils/taskCertificateUtils');
 
 router.get('/:certificateId/qr.png', async (req, res) => {
   try {
@@ -52,24 +52,6 @@ router.get('/', auth, async (req, res) => {
     res.json(certificates);
   } catch (err) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/:certificateId/download', async (req, res) => {
-  try {
-    const certificate = await TaskCertificate
-      .findOne({ certificateId: req.params.certificateId })
-      .populate('student', 'name');
-
-    if (!certificate) return res.status(404).send('Certificate not found.');
-
-    const pdfBuffer = await renderTaskCertificatePdf(certificate);
-    res.set('Content-Type', 'application/pdf');
-    res.set('Content-Disposition', `attachment; filename="task-certificate-${certificate.certificateId}.pdf"`);
-    res.send(pdfBuffer);
-  } catch (err) {
-    console.error('Task certificate PDF generation failed:', err);
-    res.status(500).send('Error generating certificate PDF.');
   }
 });
 
