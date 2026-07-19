@@ -223,6 +223,7 @@ const issueTaskCertificate = async (submission) => {
       type: 'certificate',
       text: `🎉 You've completed "${task.title}"! Your task completion certificate has been emailed to you.`,
       meta: { certificateId: certificate.certificateId },
+      task: task._id,
     });
     socketManager.emitToUser(intern._id, 'notification:new', {
       id: notif._id,

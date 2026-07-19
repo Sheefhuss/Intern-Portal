@@ -4,6 +4,7 @@ const Task = require('../models/Task');
 const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
 const TaskComment = require('../models/TaskComment');
+const TaskCertificate = require('../models/TaskCertificate');
 const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
 const { decorate, batchInterns, toEndOfDay } = require('../utils/taskUtils');
@@ -166,6 +167,7 @@ router.post('/', auth, async (req, res) => {
         role: 'intern',
         type: 'task',
         text: `New task assigned: "${task.title}" — due ${task.deadline ? new Date(task.deadline).toLocaleDateString() : 'TBD'}`,
+        task: task._id,
       })));
     }
 
@@ -234,7 +236,17 @@ router.delete('/:id', auth, async (req, res) => {
 
     if (task.createdBy?.toString() !== req.user.id)
       return res.status(403).json({ error: 'Only the admin/HR who created this task can delete it.' });
+    const leftoverCerts = await TaskCertificate.find({ task: task._id }).select('certificateId');
+    const leftoverCertIds = leftoverCerts.map(c => c.certificateId);
 
+    await TaskCertificate.deleteMany({ task: task._id });
+    await TaskComment.deleteMany({ task: task._id });
+    await Notification.deleteMany({
+      $or: [
+        { task: task._id },
+        ...(leftoverCertIds.length ? [{ 'meta.certificateId': { $in: leftoverCertIds } }] : []),
+      ],
+    });
     await Submission.deleteMany({ task: task._id });
     await Task.findByIdAndDelete(req.params.id);
 
@@ -283,6 +295,7 @@ router.post('/:id/comments', auth, async (req, res) => {
       role: notifyRole,
       type: 'task',
       text: `${author?.name || 'Someone'} (${req.user.role.toUpperCase()}) commented on "${task.title}": "${text.trim()}"`,
+      task: task._id,
     });
     socketManager.emitToAll('notification:new', {
       id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,

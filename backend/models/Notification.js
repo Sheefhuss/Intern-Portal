@@ -7,6 +7,7 @@ const NotificationSchema = new mongoose.Schema({
   text:   { type: String, required: true },
   read:   { type: Boolean, default: false }, 
   readBy: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
+  task:   { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
   meta:   { certificateId: String },
 }, { timestamps: true });
 

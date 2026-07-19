@@ -100,6 +100,7 @@ router.post('/:certificateId/request-resend', auth, async (req, res) => {
       type: 'certificate',
       text: `${certificate.student?.name || 'An intern'} says they didn't receive the certificate for "${certificate.taskTitle}" — please resend it from Task Certificates.`,
       meta: { certificateId: certificate.certificateId },
+      task: certificate.task,
     });
     socketManager.emitToAll('notification:new', {
       id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,

@@ -86,6 +86,7 @@ router.patch('/:id/submit', auth, async (req, res) => {
         role: 'hr',
         type: 'task',
         text: `${intern?.name || 'An intern'} submitted "${task.title}" for review.`,
+        task: task._id,
       });
       socketManager.emitToAll('notification:new', {
         id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
@@ -216,6 +217,7 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
         role: 'intern',
         type: 'task',
         text: `Your submission for "${task?.title || 'a task'}" has been reset to Pending. Please resubmit.${deadlineNote}${commentNote}`,
+        task: task?._id || null,
       });
       socketManager.emitToUser(intern._id, 'notification:new', {
         id: notif._id, role: notif.role, type: notif.type, text: notif.text, read: false,
