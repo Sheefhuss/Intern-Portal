@@ -22,17 +22,17 @@ export default function MyTaskCertificates() {
 
   useEffect(() => { load(); }, []);
 
-  const resend = async (cert) => {
+  const requestResend = async (cert) => {
     setResending(cert.certificateId);
     setError("");
     try {
-      await AuthService.apiFetch(`/task-certificates/${cert.certificateId}/resend-self`, {
+      await AuthService.apiFetch(`/task-certificates/${cert.certificateId}/request-resend`, {
         method: "POST",
       });
       setJustResent(cert.certificateId);
-      setTimeout(() => setJustResent(null), 4000);
+      setTimeout(() => setJustResent(null), 5000);
     } catch (err) {
-      setError(err.message || "Failed to resend. Please try again in a moment.");
+      setError(err.message || "Failed to send request. Please try again in a moment.");
     } finally {
       setResending(null);
     }
@@ -67,7 +67,7 @@ export default function MyTaskCertificates() {
               </div>
 
               <a
-                href={`/api/task-certificates/${cert.certificateId}/download`}
+                href={`${AuthService.getApiBase()}/task-certificates/${cert.certificateId}/download`}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -80,7 +80,7 @@ export default function MyTaskCertificates() {
               </a>
 
               <button
-                onClick={() => resend(cert)}
+                onClick={() => requestResend(cert)}
                 disabled={isResending}
                 style={{
                   padding: "6px 12px",
@@ -89,11 +89,11 @@ export default function MyTaskCertificates() {
                   cursor: isResending ? "not-allowed" : "pointer", fontFamily: "inherit",
                 }}
               >
-                {isResending ? "Sending…" : "📧 Email it to me"}
+                {isResending ? "Sending…" : "🔔 Didn't get it? Ask admin"}
               </button>
 
               {isJustResent && (
-                <span style={{ fontSize: 11.5, color: "#16A34A" }}>Sent! Check your inbox.</span>
+                <span style={{ fontSize: 11.5, color: "#16A34A" }}>Admin has been notified.</span>
               )}
             </div>
           );

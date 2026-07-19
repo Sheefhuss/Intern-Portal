@@ -38,7 +38,6 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
-// Admin/HR: list every task certificate that's been auto-issued.
 router.get('/', auth, async (req, res) => {
   try {
     if (!['admin', 'hr'].includes(req.user.role))
@@ -103,7 +102,6 @@ router.post('/:certificateId/resend', auth, async (req, res) => {
     res.status(500).json({ error: 'Failed to resend certificate email.' });
   }
 });
-
 router.post('/:certificateId/request-resend', auth, async (req, res) => {
   try {
     if (req.user.role !== 'intern')

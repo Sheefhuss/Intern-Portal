@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AuthService, API } from "../../auth/authService";
+import { AuthService } from "../../auth/authService";
 import { COLORS, S } from "../../utils/theme";
 
 export default function TaskCertificatesPanel() {
@@ -107,7 +107,7 @@ export default function TaskCertificatesPanel() {
                 </span>
 
                 <a
-                  href={`${API}/task-certificates/${cert.certificateId}/download`}
+                  href={`${AuthService.getApiBase()}/task-certificates/${cert.certificateId}/download`}
                   target="_blank"
                   rel="noreferrer"
                   style={{
