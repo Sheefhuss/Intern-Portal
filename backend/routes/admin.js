@@ -248,6 +248,22 @@ router.post('/interns/:id/offer-letter', auth, requireManager, async (req, res) 
   }
 });
 
+router.patch('/interns/:id/offer-letter/mark-sent', auth, requireManager, async (req, res) => {
+  try {
+    const intern = await User.findById(req.params.id);
+    if (!intern) return res.status(404).json({ error: 'Intern not found.' });
+    if (intern.role !== 'intern')
+      return res.status(400).json({ error: 'Only interns have an offer letter status.' });
+
+    intern.offerLetterSentAt = new Date();
+    await intern.save();
+
+    res.json({ success: true, offerLetterSentAt: intern.offerLetterSentAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
   try {
     if (req.params.id === req.user.id)

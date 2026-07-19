@@ -75,6 +75,37 @@ export default function OfferLetterPanel() {
     }
   };
 
+  const markAlreadySent = async (intern) => {
+    if (!window.confirm(`Mark ${intern.name} as already having their offer letter? This won't send an email — use this only if they already got it some other way.`)) return;
+    setSending(intern._id);
+    setError("");
+    try {
+      await AuthService.apiFetch(`/admin/interns/${intern._id}/offer-letter/mark-sent`, { method: "PATCH" });
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed to update.");
+    } finally {
+      setSending(null);
+    }
+  };
+
+  const markAllAlreadySent = async () => {
+    if (!pending.length) return;
+    if (!window.confirm(`Mark all ${pending.length} pending interns as already having their offer letter? This won't send any emails — use this only for interns who already got theirs some other way (e.g. before this panel existed).`)) return;
+    setSending("__bulk__");
+    setError("");
+    try {
+      for (const intern of pending) {
+        await AuthService.apiFetch(`/admin/interns/${intern._id}/offer-letter/mark-sent`, { method: "PATCH" });
+      }
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed to update some interns.");
+    } finally {
+      setSending(null);
+    }
+  };
+
   return (
     <div style={S.card}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -95,7 +126,7 @@ export default function OfferLetterPanel() {
         Nothing is generated automatically; this is just a place to send what you've already prepared.
       </p>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         {[
           { id: "pending", label: `Awaiting Offer Letter (${pending.length})` },
           { id: "sent", label: `Sent (${sent.length})` },
@@ -114,6 +145,19 @@ export default function OfferLetterPanel() {
             {t.label}
           </button>
         ))}
+        {tab === "pending" && pending.length > 0 && (
+          <button
+            onClick={markAllAlreadySent}
+            disabled={sending === "__bulk__"}
+            style={{
+              marginLeft: "auto", padding: "6px 12px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+              border: "1px solid #D1D5DB", background: "#fff", color: "#6B7280",
+              cursor: sending === "__bulk__" ? "not-allowed" : "pointer", fontFamily: "inherit",
+            }}
+          >
+            {sending === "__bulk__" ? "Updating…" : "Mark all as already sent (no email)"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -181,6 +225,18 @@ export default function OfferLetterPanel() {
                       }}
                     >
                       {isSending ? "Sending…" : "Email Offer Letter →"}
+                    </button>
+                    <button
+                      onClick={() => markAlreadySent(intern)}
+                      disabled={isSending}
+                      title="They already got their offer letter some other way — just dismiss this without emailing"
+                      style={{
+                        padding: "7px 10px", background: "transparent", border: "none",
+                        color: "#9CA3AF", fontSize: 11, fontWeight: 500, textDecoration: "underline",
+                        cursor: isSending ? "not-allowed" : "pointer", fontFamily: "inherit",
+                      }}
+                    >
+                      Already sent
                     </button>
                   </>
                 ) : (
