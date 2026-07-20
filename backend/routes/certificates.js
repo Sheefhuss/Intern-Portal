@@ -242,6 +242,12 @@ router.post('/:certificateId/issue', auth, async (req, res) => {
     certificate.emailSent = true;
     await certificate.save();
 
+    await Notification.deleteMany({
+      type: 'certificate',
+      role: { $in: ['hr', 'admin'] },
+      'meta.certificateId': certificate.certificateId,
+    });
+
     const internNotif = await Notification.create({
       userId: certificate.student._id,
       role: 'intern',

@@ -8,6 +8,7 @@ const Submission = require('../models/Submission');
 const TaskCertificate = require('../models/TaskCertificate');
 const Certificate = require('../models/Certificate');
 const Notification = require('../models/Notification');
+const Meeting = require('../models/Meeting');
 const auth    = require('../middleware/authMiddleware');
 const mailer  = require('../utils/mailer');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
@@ -295,6 +296,7 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
       User.find({}).distinct('_id'),
       Task.find({}).distinct('_id'),
     ]);
+    const allMeetingIds = await Meeting.find({}).distinct('_id');
 
     const orphanedSubmissions = await Submission.deleteMany({
       $or: [{ intern: { $nin: allUserIds } }, { task: { $nin: allTaskIds } }],
@@ -313,9 +315,35 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
         { userId: { $exists: true, $ne: null, $nin: allUserIds } },
         { relatedUser: { $exists: true, $ne: null, $nin: allUserIds } },
         { task: { $exists: true, $ne: null, $nin: allTaskIds } },
+        { meeting: { $exists: true, $ne: null, $nin: allMeetingIds } },
         { 'meta.certificateId': { $exists: true, $ne: null, $nin: remainingValidCertIds } },
       ],
     });
+
+    const issuedCertIds = (await Certificate.find({ emailSent: true }).distinct('certificateId'));
+    const staleResolvedNotifs = issuedCertIds.length
+      ? await Notification.deleteMany({
+          type: 'certificate',
+          role: { $in: ['hr', 'admin'] },
+          'meta.certificateId': { $in: issuedCertIds },
+        })
+      : { deletedCount: 0 };
+
+    const pendingCertNotifs = await Notification.find({
+      type: 'certificate',
+      role: { $in: ['hr', 'admin'] },
+      'meta.certificateId': { $exists: true, $ne: null },
+    }).sort({ createdAt: -1 });
+    const seenKeys = new Set();
+    const duplicateIds = [];
+    for (const n of pendingCertNotifs) {
+      const key = `${n.meta.certificateId}::${n.role}`;
+      if (seenKeys.has(key)) duplicateIds.push(n._id);
+      else seenKeys.add(key);
+    }
+    const dedupedNotifs = duplicateIds.length
+      ? await Notification.deleteMany({ _id: { $in: duplicateIds } })
+      : { deletedCount: 0 };
 
     res.json({
       success: true,
@@ -323,7 +351,7 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
         submissions: orphanedSubmissions.deletedCount,
         taskCertificates: orphanedTaskCerts.deletedCount,
         certificates: orphanedCerts.deletedCount,
-        notifications: orphanedNotifications.deletedCount,
+        notifications: orphanedNotifications.deletedCount + staleResolvedNotifs.deletedCount + dedupedNotifs.deletedCount,
       },
     });
   } catch (err) {

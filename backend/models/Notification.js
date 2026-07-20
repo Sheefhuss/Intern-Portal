@@ -8,6 +8,7 @@ const NotificationSchema = new mongoose.Schema({
   read:   { type: Boolean, default: false }, 
   readBy: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
   task:   { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
+  meeting: { type: mongoose.Schema.Types.ObjectId, ref: 'Meeting', default: null },
   relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   meta:   { certificateId: String },
 }, { timestamps: true });

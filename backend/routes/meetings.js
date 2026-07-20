@@ -12,10 +12,10 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-const notifyStaff = async (text) => {
+const notifyStaff = async (text, meetingId = null) => {
   const docs = await Notification.insertMany([
-    { role: 'admin', type: 'system', text },
-    { role: 'hr',    type: 'system', text },
+    { role: 'admin', type: 'system', text, meeting: meetingId },
+    { role: 'hr',    type: 'system', text, meeting: meetingId },
   ]);
   docs.forEach(n => socketManager.emitToAll('notification:new', {
     id: n._id, role: n.role, type: n.type, text: n.text, read: false,
@@ -184,7 +184,7 @@ router.post('/requests', auth, async (req, res) => {
     });
 
     const intern = await User.findById(req.user.id).select('name');
-    await notifyStaff(`📨 ${intern.name} sent a meeting request: "${meeting.title}"`);
+    await notifyStaff(`📨 ${intern.name} sent a meeting request: "${meeting.title}"`, meeting._id);
 
     res.status(201).json(meeting);
   } catch (err) {
@@ -203,6 +203,8 @@ router.patch('/:id/approve', auth, requireAdmin, async (req, res) => {
     meeting.approvalLink = approvalLink?.trim() || '';
     if (scheduledAt) meeting.scheduledAt = new Date(scheduledAt);
     await meeting.save();
+
+    await Notification.deleteMany({ meeting: meeting._id, role: { $in: ['hr', 'admin'] } });
 
     await Notification.create({
       userId: meeting.createdBy._id,
@@ -236,6 +238,8 @@ router.patch('/:id/reject', auth, requireAdmin, async (req, res) => {
 
     meeting.status = 'rejected';
     await meeting.save();
+
+    await Notification.deleteMany({ meeting: meeting._id, role: { $in: ['hr', 'admin'] } });
 
     await Notification.create({
       userId: meeting.createdBy,
@@ -288,6 +292,7 @@ router.delete('/:id/permanent', auth, requireAdmin, async (req, res) => {
   try {
     const meeting = await Meeting.findByIdAndDelete(req.params.id);
     if (!meeting) return res.status(404).json({ error: 'Meeting not found.' });
+    await Notification.deleteMany({ meeting: meeting._id });
     res.json({ success: true, message: 'Permanently deleted from system storage' });
   } catch (err) {
     res.status(500).json({ error: err.message });

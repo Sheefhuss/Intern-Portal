@@ -52,6 +52,13 @@ const maybeIssueCertificate = async (internId) => {
 
   const domainLabel = intern.domain || 'Internship';
   const batchLabel = intern.batch ? `, Batch ${intern.batch}` : '';
+  
+  await Notification.deleteMany({
+    type: 'certificate',
+    role: { $in: ['hr', 'admin'] },
+    relatedUser: intern._id,
+    'meta.certificateId': certificate.certificateId,
+  });
 
   await Notification.insertMany([
     {
@@ -59,12 +66,14 @@ const maybeIssueCertificate = async (internId) => {
       type: 'certificate',
       text: `🎓 ${intern.name} has completed all assigned tasks in the ${domainLabel} program${batchLabel}. Please prepare and upload their completion certificate.`,
       meta: { certificateId: certificate.certificateId },
+      relatedUser: intern._id,
     },
     {
       role: 'admin',
       type: 'certificate',
       text: `🎓 ${intern.name} has completed all assigned tasks in the ${domainLabel} program${batchLabel}. Please prepare and upload their completion certificate.`,
       meta: { certificateId: certificate.certificateId },
+      relatedUser: intern._id,
     },
   ]);
 
@@ -74,6 +83,7 @@ const maybeIssueCertificate = async (internId) => {
     type: 'certificate',
     text: `🎉 You've completed all assigned tasks in the ${domainLabel} program${batchLabel}! Your certificate is being prepared and will be emailed to you shortly.`,
     meta: { certificateId: certificate.certificateId },
+    relatedUser: intern._id,
   });
 
   socketManager.emitToUser(intern._id, 'notification:new', {
