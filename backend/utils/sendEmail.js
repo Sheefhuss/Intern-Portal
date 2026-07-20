@@ -175,12 +175,21 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder, is
   return sendBrevoEmail({ to, subject, html });
 }
 
-async function sendTaskEmail({ to, internName, taskTitle, type, note }) {
+async function sendTaskEmail({ to, internName, taskTitle, type, note, deadline }) {
+  const deadlineStr = deadline
+    ? new Date(deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    : null;
+
   const copy = {
     reset: {
       label: 'Submission Reset',
       heading: `↩️ "${taskTitle}" was reset to Pending`,
       body: `Your submission for <strong>${taskTitle}</strong> has been reset to Pending by the review team. Please review the feedback (if any) and resubmit when ready.`,
+    },
+    assigned: {
+      label: 'New Task Assigned',
+      heading: `📋 New task: "${taskTitle}"`,
+      body: `You've been assigned a new task: <strong>${taskTitle}</strong>.${deadlineStr ? ` It's due <strong>${deadlineStr}</strong>.` : ' No deadline has been set yet.'} Head to the Tasks page in the portal for full details.`,
     },
   }[type] || {
     label: 'Task Update',

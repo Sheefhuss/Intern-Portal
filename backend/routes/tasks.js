@@ -9,6 +9,7 @@ const User = require('../models/User');
 const auth = require('../middleware/authMiddleware');
 const { decorate, batchInterns, toEndOfDay } = require('../utils/taskUtils');
 const { maybeIssueCertificate } = require('../utils/certificateUtils');
+const { sendTaskEmail } = require('../utils/sendEmail');
 const socketManager = require('../utils/socketManager');
 
 router.get('/', auth, async (req, res) => {
@@ -162,13 +163,36 @@ router.post('/', auth, async (req, res) => {
         }
       });
 
-      await Notification.insertMany(internIds.map(internId => ({
+      const notifDocs = await Notification.insertMany(internIds.map(internId => ({
         userId: internId,
         role: 'intern',
         type: 'task',
         text: `New task assigned: "${task.title}" — due ${task.deadline ? new Date(task.deadline).toLocaleDateString() : 'TBD'}`,
         task: task._id,
       })));
+
+      const assignedInterns = await User.find({ _id: { $in: internIds } }).select('name email');
+      const internById = {};
+      assignedInterns.forEach(i => { internById[i._id.toString()] = i; });
+
+      notifDocs.forEach((n, idx) => {
+        const internId = internIds[idx];
+        socketManager.emitToUser(internId, 'notification:new', {
+          id: n._id, type: n.type, text: n.text, read: false,
+          time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        });
+
+        const intern = internById[internId.toString()];
+        if (intern?.email) {
+          sendTaskEmail({
+            to: intern.email,
+            internName: intern.name,
+            taskTitle: task.title,
+            type: 'assigned',
+            deadline: task.deadline,
+          }).catch(() => {});
+        }
+      });
     }
 
     const [decorated] = await decorate([task]);
