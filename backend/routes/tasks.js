@@ -172,6 +172,7 @@ router.post('/', auth, async (req, res) => {
     }
 
     const [decorated] = await decorate([task]);
+    socketManager.emitToAll('tasks:changed', {});
     res.status(201).json({ ...decorated, status: 'pending', assigneeCount: internIds.length, submittedCount: 0, hrReviewedCount: 0, reviewedCount: 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -250,6 +251,7 @@ router.delete('/:id', auth, async (req, res) => {
     await Submission.deleteMany({ task: task._id });
     await Task.findByIdAndDelete(req.params.id);
 
+    socketManager.emitToAll('tasks:changed', {});
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

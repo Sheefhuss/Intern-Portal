@@ -97,6 +97,7 @@ router.patch('/:id/submit', auth, async (req, res) => {
       console.error('Submission notification failed:', notifyErr.message);
     }
 
+    socketManager.emitToAll('tasks:changed', {});
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -123,6 +124,7 @@ router.patch('/:id/withdraw', auth, async (req, res) => {
     submission.source = 'intern';
     await submission.save();
 
+    socketManager.emitToAll('tasks:changed', {});
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -140,6 +142,7 @@ router.patch('/:submissionId/forward', auth, async (req, res) => {
       { new: true }
     );
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
+    socketManager.emitToAll('tasks:changed', {});
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -170,6 +173,7 @@ router.patch('/:submissionId/review', auth, async (req, res) => {
       console.error(`Certificate issuance failed for intern ${submission.intern} after review:`, certErr);
     }
 
+    socketManager.emitToAll('tasks:changed', {});
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -237,6 +241,7 @@ router.patch('/:submissionId/reset', auth, async (req, res) => {
       }
     }
 
+    socketManager.emitToAll('tasks:changed', {});
     res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });

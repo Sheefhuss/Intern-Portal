@@ -499,12 +499,12 @@ export default function App() {
           flex: 1, overflow: "auto", padding: 28, background: "#F8F9FC",
           opacity: mounted ? 1 : 0, transition: "opacity 0.4s ease 0.15s",
         }}>
-          {currentPage === "dashboard" && <DashboardPage session={session} onNavigate={setCurrentPage} />}
-          {currentPage === "tasks" && <TasksPage session={session} />}
+          {currentPage === "dashboard" && <DashboardPage session={session} onNavigate={setCurrentPage} socket={globalSocket} />}
+          {currentPage === "tasks" && <TasksPage session={session} socket={globalSocket} />}
           {currentPage === "announcements" && <AnnouncementsPage session={session} notifications={notifications} onMarkRead={markAsRead} onMarkAllRead={markAllAsRead} />}
-          {currentPage === "meetings" && <MeetingsPage session={session} />}
+          {currentPage === "meetings" && <MeetingsPage session={session} socket={globalSocket} />}
           {currentPage === "interns" && AuthService.hasAccess(session.role, "hr") && <InternsPage session={session} />}
-          {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage />}
+          {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage socket={globalSocket} />}
           {currentPage === "profile" && <ProfilePage session={session} />}
           {currentPage === "chat" && <ChatPage currentUserId={currentUserId} socket={globalSocket} />}
           {currentPage === "support" && <SupportPage session={session} />}

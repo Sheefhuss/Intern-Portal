@@ -10,7 +10,7 @@ import SlotForm from "./meetings/SlotForm";
 import RequestForm from "./meetings/RequestForm";
 import ApproveModal from "./meetings/ApproveModal";
 
-export default function MeetingsPage({ session }) {
+export default function MeetingsPage({ session, socket }) {
   const role    = session?.role?.toLowerCase();
   const isAdmin = role === "admin";
   const isHR    = role === "hr";
@@ -43,6 +43,13 @@ export default function MeetingsPage({ session }) {
         .then(setInterns).catch(() => setInterns([]));
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => load();
+    socket.on("meetings:changed", refresh);
+    return () => socket.off("meetings:changed", refresh);
+  }, [socket]);
 
   const slots          = meetings.filter(m => m.type === "slot");
   const requests       = meetings.filter(m => m.type === "request");

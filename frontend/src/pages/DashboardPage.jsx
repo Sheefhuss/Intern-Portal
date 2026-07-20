@@ -17,19 +17,36 @@ const actionButtonStyle = {
   width: "100%",
 };
 
-export default function DashboardPage({ session, onNavigate }) {
+export default function DashboardPage({ session, onNavigate, socket }) {
   const role     = session?.role?.toLowerCase() || "intern";
   const userName = session?.name || "User";
 
   const [dbStats, setDbStats]     = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const loadStats = () => {
     AuthService.apiFetch("/dashboard/stats")
       .then(data => setDbStats(data))
       .catch(() => setDbStats({ count1: 0, count2: 0, count3: 0, milestones: [], serverHealth: [] }))
       .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    loadStats();
   }, [role]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => loadStats();
+    socket.on("notification:new", refresh);
+    socket.on("tasks:changed", refresh);
+    socket.on("meetings:changed", refresh);
+    return () => {
+      socket.off("notification:new", refresh);
+      socket.off("tasks:changed", refresh);
+      socket.off("meetings:changed", refresh);
+    };
+  }, [socket]);
 
   const nav = (page) => typeof onNavigate === "function" && onNavigate(page);
 

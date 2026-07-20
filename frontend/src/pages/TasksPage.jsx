@@ -9,7 +9,7 @@ import TrackingModal from "./tasks/TrackingModal";
 import SubmitModal from "./tasks/SubmitModal";
 import MyTaskCertificates from "./tasks/MyTaskCertificates";
 
-export default function TasksPage({ session }) {
+export default function TasksPage({ session, socket }) {
   const role      = session?.role?.toLowerCase();
   const isAdmin   = role === "admin";
   const isHR      = role === "hr";
@@ -53,6 +53,13 @@ export default function TasksPage({ session }) {
         .catch(() => setInterns([]));
     }
   }, [isManager]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => fetchTasks();
+    socket.on("tasks:changed", refresh);
+    return () => socket.off("tasks:changed", refresh);
+  }, [socket]);
 
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
 

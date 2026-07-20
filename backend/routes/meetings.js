@@ -75,6 +75,7 @@ router.post('/slots', auth, requireAdmin, async (req, res) => {
       createdBy: req.user.id,
       status: 'open',
     });
+    socketManager.emitToAll('meetings:changed', {});
     res.status(201).json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -144,6 +145,7 @@ router.patch('/:id/book', auth, async (req, res) => {
     const intern = await User.findById(req.user.id).select('name');
     await notifyStaff(`📅 ${intern.name} booked a meeting slot: "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}`);
 
+    socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -160,6 +162,7 @@ router.patch('/:id/cancel', auth, async (req, res) => {
     meeting.status   = 'open';
     meeting.bookedBy = null;
     await meeting.save();
+    socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -186,6 +189,7 @@ router.post('/requests', auth, async (req, res) => {
     const intern = await User.findById(req.user.id).select('name');
     await notifyStaff(`📨 ${intern.name} sent a meeting request: "${meeting.title}"`, meeting._id);
 
+    socketManager.emitToAll('meetings:changed', {});
     res.status(201).json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -225,6 +229,7 @@ router.patch('/:id/approve', auth, requireAdmin, async (req, res) => {
       }).catch(() => {});
     }
 
+    socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -250,6 +255,7 @@ router.patch('/:id/reject', auth, requireAdmin, async (req, res) => {
       time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
     }));
 
+    socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -272,6 +278,7 @@ router.patch('/:id/reschedule', auth, requireAdmin, async (req, res) => {
     meeting.reminderSent = false;
     
     await meeting.save();
+    socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -283,6 +290,7 @@ router.delete('/:id', auth, requireAdmin, async (req, res) => {
     const meeting = await Meeting.findByIdAndUpdate(req.params.id, { isDeleted: true }, { new: true });
     if (!meeting) return res.status(404).json({ error: 'Meeting not found.' });
     await Notification.deleteMany({ meeting: meeting._id, role: { $in: ['hr', 'admin'] } });
+    socketManager.emitToAll('meetings:changed', {});
     res.json({ success: true, message: 'Moved to history log' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -294,6 +302,7 @@ router.delete('/:id/permanent', auth, requireAdmin, async (req, res) => {
     const meeting = await Meeting.findByIdAndDelete(req.params.id);
     if (!meeting) return res.status(404).json({ error: 'Meeting not found.' });
     await Notification.deleteMany({ meeting: meeting._id });
+    socketManager.emitToAll('meetings:changed', {});
     res.json({ success: true, message: 'Permanently deleted from system storage' });
   } catch (err) {
     res.status(500).json({ error: err.message });
