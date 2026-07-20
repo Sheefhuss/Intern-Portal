@@ -228,23 +228,47 @@ async function sendTaskEmail({ to, internName, taskTitle, type, note, deadline }
 }
 
 async function sendAnnouncementEmail({ to, internName, text }) {
+  const logoDataUri = `${BASE_URL}/api/certificates/logo.png`;
+
   const html = `
-      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
-        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
-          <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
-          <div style="padding:36px 40px;">
-            <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
-              📢 New Announcement
-            </p>
-            <h1 style="font-size:20px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
-              Hi ${internName || 'there'},
-            </h1>
-            <p style="font-size:14px;color:#374151;line-height:1.7;margin:0;white-space:pre-wrap;">
-              ${text}
-            </p>
-          </div>
-          <div style="height:5px;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);"></div>
-        </div>
+      <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;margin:0 auto;">
+          <tr>
+            <td style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="height:8px;line-height:8px;font-size:0;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td style="padding:28px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+                      <tr>
+                        <td style="width:36px;padding-right:10px;vertical-align:middle;">
+                          <img src="${logoDataUri}" alt="Enginow" width="36" height="36" style="display:block;border-radius:8px;">
+                        </td>
+                        <td style="vertical-align:middle;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#7C3AED;">
+                          Enginow Internship Program
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
+                      📢 New Announcement
+                    </p>
+                    <h1 style="font-size:20px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
+                      Hi ${internName || 'there'},
+                    </h1>
+                    <p style="font-size:14px;color:#374151;line-height:1.7;margin:0;white-space:pre-wrap;word-break:break-word;">
+                      ${text}
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="height:5px;line-height:5px;font-size:0;background:linear-gradient(90deg,#6D28D9,#7C3AED,#9333EA);">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </div>
     `;
 
