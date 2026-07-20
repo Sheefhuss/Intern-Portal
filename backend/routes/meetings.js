@@ -73,8 +73,36 @@ router.post('/slots', auth, requireAdmin, async (req, res) => {
       batch:  batch  || '',
       assignedTo: assignedTo || null,
       createdBy: req.user.id,
-      status: 'open',
+      status: assignedTo ? 'booked' : 'open',
+      bookedBy: assignedTo || null,
     });
+
+    if (assignedTo) {
+      const intern = await User.findById(assignedTo).select('name email');
+      if (intern) {
+        const internNotif = await Notification.create({
+          userId: assignedTo,
+          type: 'system',
+          meeting: meeting._id,
+          text: `📅 A meeting was scheduled for you: "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}.`,
+        });
+        socketManager.emitToUser(assignedTo, 'notification:new', {
+          id: internNotif._id, type: internNotif.type, text: internNotif.text, read: false,
+          time: new Date(internNotif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        });
+
+        if (intern.email) {
+          sendMeetingEmail({
+            to: intern.email,
+            subject: `Meeting Scheduled: ${meeting.title}`,
+            title: meeting.title,
+            time: meeting.scheduledAt,
+            link: meeting.meetLink,
+          }).catch(() => {});
+        }
+      }
+    }
+
     socketManager.emitToAll('meetings:changed', {});
     res.status(201).json(meeting);
   } catch (err) {

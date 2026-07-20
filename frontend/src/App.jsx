@@ -6,7 +6,6 @@ import InternsPage from "./pages/InternsPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import { AuthService } from "./auth/authService";
 import TasksPage from "./pages/TasksPage";
-import AnnouncementsPage from "./pages/AnnouncementsPage";
 import MeetingsPage from "./pages/MeetingsPage";
 import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -181,7 +180,6 @@ export default function App() {
   const navItems = [
     { id: "dashboard", icon: "⊞", label: "Dashboard", role: null, section: "Workspace" },
     { id: "tasks", icon: "📋", label: "Task Management", role: null, section: "Workspace" },
-    { id: "announcements", icon: "📢", label: "Announcements", role: null, section: "Workspace" },
     { id: "meetings", icon: "📅", label: "Meetings", role: null, section: "Workspace" },
     { id: "profile", icon: "👤", label: "My Profile", role: null, section: "Settings" },
     { id: "interns", icon: "👥", label: "Intern Registry", role: "hr", section: "Human Resources" },
@@ -192,7 +190,6 @@ export default function App() {
   const pageTitle = {
     dashboard: "Dashboard",
     tasks: "Tasks",
-    announcements: "Announcements",
     meetings: "Meetings",
     interns: "Intern Registry",
     "admin-panel": "Admin Panel",
@@ -501,7 +498,6 @@ export default function App() {
         }}>
           {currentPage === "dashboard" && <DashboardPage session={session} onNavigate={setCurrentPage} socket={globalSocket} />}
           {currentPage === "tasks" && <TasksPage session={session} socket={globalSocket} />}
-          {currentPage === "announcements" && <AnnouncementsPage session={session} notifications={notifications} onMarkRead={markAsRead} onMarkAllRead={markAllAsRead} />}
           {currentPage === "meetings" && <MeetingsPage session={session} socket={globalSocket} />}
           {currentPage === "interns" && AuthService.hasAccess(session.role, "hr") && <InternsPage session={session} />}
           {currentPage === "admin-panel" && AuthService.hasAccess(session.role, "admin") && <AdminPanelPage socket={globalSocket} />}
