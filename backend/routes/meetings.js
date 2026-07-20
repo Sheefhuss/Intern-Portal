@@ -142,8 +142,29 @@ router.patch('/:id/book', auth, async (req, res) => {
     meeting.bookedBy = req.user.id;
     await meeting.save();
 
-    const intern = await User.findById(req.user.id).select('name');
-    await notifyStaff(`📅 ${intern.name} booked a meeting slot: "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}`);
+    const intern = await User.findById(req.user.id).select('name email');
+    await notifyStaff(`📅 ${intern.name} booked a meeting slot: "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}`, meeting._id);
+
+    const internNotif = await Notification.create({
+      userId: req.user.id,
+      type: 'system',
+      meeting: meeting._id,
+      text: `✅ You booked "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}.`,
+    });
+    socketManager.emitToUser(req.user.id, 'notification:new', {
+      id: internNotif._id, type: internNotif.type, text: internNotif.text, read: false,
+      time: new Date(internNotif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    });
+
+    if (intern.email) {
+      sendMeetingEmail({
+        to: intern.email,
+        subject: `Confirmed: ${meeting.title}`,
+        title: meeting.title,
+        time: meeting.scheduledAt,
+        link: meeting.meetLink,
+      }).catch(() => {});
+    }
 
     socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
@@ -270,14 +291,45 @@ router.patch('/:id/reschedule', auth, requireAdmin, async (req, res) => {
     const meeting = await Meeting.findById(req.params.id);
     if (!meeting) return res.status(404).json({ error: 'Meeting record not found.' });
 
+    const previouslyBookedBy = meeting.bookedBy;
+
     meeting.scheduledAt = new Date(scheduledAt);
     if (meetLink) meeting.meetLink = meetLink.trim();
-    
+
     meeting.status = meeting.type === 'request' ? 'pending' : 'open';
+    if (meeting.type === 'slot') meeting.bookedBy = null; // don't leave a stale booking on a re-opened slot
     meeting.isDeleted = false;
     meeting.reminderSent = false;
-    
+
     await meeting.save();
+
+    if (meeting.type === 'slot' && previouslyBookedBy) {
+      const rescheduleNotif = await Notification.create({
+        userId: previouslyBookedBy,
+        type: 'system',
+        meeting: meeting._id,
+        text: `🔄 Your meeting "${meeting.title}" was rescheduled to ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}. Please rebook if you still need it.`,
+      });
+      socketManager.emitToUser(previouslyBookedBy, 'notification:new', {
+        id: rescheduleNotif._id, type: rescheduleNotif.type, text: rescheduleNotif.text, read: false,
+        time: new Date(rescheduleNotif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      });
+
+      const previousIntern = await User.findById(previouslyBookedBy).select('email');
+      if (previousIntern?.email) {
+        sendMeetingEmail({
+          to: previousIntern.email,
+          subject: `Rescheduled: ${meeting.title}`,
+          title: meeting.title,
+          time: meeting.scheduledAt,
+          link: meeting.meetLink,
+          isReminder: false,
+        }).catch(() => {});
+      }
+    }
+
+    await notifyStaff(`🔄 "${meeting.title}" was rescheduled to ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}.`, meeting._id);
+
     socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
