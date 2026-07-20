@@ -290,13 +290,22 @@ router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
   }
 });
 
+router.delete('/maintenance/notifications', auth, requireAdmin, async (req, res) => {
+  try {
+    const result = await Notification.deleteMany({});
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req, res) => {
   try {
     const [allUserIds, allTaskIds] = await Promise.all([
       User.find({}).distinct('_id'),
       Task.find({}).distinct('_id'),
     ]);
-    const allMeetingIds = await Meeting.find({}).distinct('_id');
+    const allMeetingIds = await Meeting.find({ isDeleted: { $ne: true } }).distinct('_id');
 
     const orphanedSubmissions = await Submission.deleteMany({
       $or: [{ intern: { $nin: allUserIds } }, { task: { $nin: allTaskIds } }],

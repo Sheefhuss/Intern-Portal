@@ -27,6 +27,20 @@ export default function AdminPanelPage() {
   const [creatingBatch, setCreatingBatch]   = useState(false);
   const [expandedBatch, setExpandedBatch]   = useState(null);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [clearingNotifs, setClearingNotifs] = useState(false);
+
+  const clearAllNotifications = async () => {
+    if (!window.confirm("This deletes EVERY notification for EVERYONE (admin, hr, and interns) — including anything not yet read. This can't be undone. Continue?")) return;
+    setClearingNotifs(true);
+    try {
+      const result = await AuthService.apiFetch("/admin/maintenance/notifications", { method: "DELETE" });
+      alert(`Deleted ${result.deletedCount || 0} notifications.`);
+    } catch (err) {
+      alert(err.message || "Failed to clear notifications.");
+    } finally {
+      setClearingNotifs(false);
+    }
+  };
 
   const cleanupOrphanedData = async () => {
     if (!window.confirm("This permanently deletes leftover submissions, certificates, and notifications tied to already-deleted tasks or interns. Continue?")) return;
@@ -276,19 +290,34 @@ export default function AdminPanelPage() {
             }}>{label}</button>
           ))}
         </div>
-        <button
-          onClick={cleanupOrphanedData}
-          disabled={cleaningUp}
-          title="Delete leftover submissions, certificates, and notifications tied to already-deleted tasks or interns"
-          style={{
-            padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-            border: "1px solid #FCA5A5", background: "#fff", color: "#DC2626",
-            cursor: cleaningUp ? "not-allowed" : "pointer", fontFamily: "inherit",
-            opacity: cleaningUp ? 0.6 : 1,
-          }}
-        >
-          {cleaningUp ? "Cleaning…" : "🧹 Clean Up Orphaned Data"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={cleanupOrphanedData}
+            disabled={cleaningUp}
+            title="Delete leftover submissions, certificates, and notifications tied to already-deleted tasks or interns"
+            style={{
+              padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid #FCA5A5", background: "#fff", color: "#DC2626",
+              cursor: cleaningUp ? "not-allowed" : "pointer", fontFamily: "inherit",
+              opacity: cleaningUp ? 0.6 : 1,
+            }}
+          >
+            {cleaningUp ? "Cleaning…" : "🧹 Clean Up Orphaned Data"}
+          </button>
+          <button
+            onClick={clearAllNotifications}
+            disabled={clearingNotifs}
+            title="Delete every notification for everyone, no matter what it's about — a full reset"
+            style={{
+              padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid #FCA5A5", background: "#fff", color: "#DC2626",
+              cursor: clearingNotifs ? "not-allowed" : "pointer", fontFamily: "inherit",
+              opacity: clearingNotifs ? 0.6 : 1,
+            }}
+          >
+            {clearingNotifs ? "Clearing…" : "🗑️ Clear ALL Notifications"}
+          </button>
+        </div>
       </div>
 
       {tab === "invite" && (
