@@ -183,6 +183,10 @@ router.patch('/:id/cancel', auth, async (req, res) => {
     meeting.status   = 'open';
     meeting.bookedBy = null;
     await meeting.save();
+
+    const intern = await User.findById(req.user.id).select('name');
+    await notifyStaff(`↩️ ${intern.name} cancelled their booking for "${meeting.title}". The slot is open again.`, meeting._id);
+
     socketManager.emitToAll('meetings:changed', {});
     res.json(meeting);
   } catch (err) {
@@ -339,9 +343,36 @@ router.patch('/:id/reschedule', auth, requireAdmin, async (req, res) => {
 
 router.delete('/:id', auth, requireAdmin, async (req, res) => {
   try {
+    const existing = await Meeting.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Meeting not found.' });
+    const affectedUserId = existing.bookedBy || (existing.type === 'request' ? existing.createdBy : null);
+
     const meeting = await Meeting.findByIdAndUpdate(req.params.id, { isDeleted: true }, { new: true });
-    if (!meeting) return res.status(404).json({ error: 'Meeting not found.' });
     await Notification.deleteMany({ meeting: meeting._id, role: { $in: ['hr', 'admin'] } });
+
+    if (affectedUserId) {
+      const cancelNotif = await Notification.create({
+        userId: affectedUserId,
+        type: 'system',
+        meeting: meeting._id,
+        text: `🗑️ Your meeting "${meeting.title}" was cancelled by an admin.`,
+      });
+      socketManager.emitToUser(affectedUserId, 'notification:new', {
+        id: cancelNotif._id, type: cancelNotif.type, text: cancelNotif.text, read: false,
+        time: new Date(cancelNotif.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      });
+
+      const affectedUser = await User.findById(affectedUserId).select('email');
+      if (affectedUser?.email) {
+        sendMeetingEmail({
+          to: affectedUser.email,
+          subject: `Cancelled: ${meeting.title}`,
+          title: meeting.title,
+          time: meeting.scheduledAt,
+        }).catch(() => {});
+      }
+    }
+
     socketManager.emitToAll('meetings:changed', {});
     res.json({ success: true, message: 'Moved to history log' });
   } catch (err) {

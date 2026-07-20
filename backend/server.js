@@ -75,7 +75,15 @@ app.get('/api/dashboard/stats', auth, async (req, res) => {
     if (role === 'admin') {
       const totalUsers = await User.countDocuments({ role: { $in: ['intern', 'hr'] } });
       const activeInterns = await User.countDocuments({ role: 'intern', status: 'active' });
-      const systemAlerts = await Notification.countDocuments({ type: 'system', readBy: { $ne: req.user.id } });
+      const systemAlerts = await Notification.countDocuments({
+        type: 'system',
+        readBy: { $ne: req.user.id },
+        $or: [
+          { userId: req.user.id },
+          { role: 'all' },
+          { role: role, userId: { $exists: false } },
+        ],
+      });
 
       const serverHealth = [
         { metric: 'Active Interns', value: activeInterns, status: 'Good' },
