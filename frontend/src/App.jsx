@@ -102,7 +102,11 @@ export default function App() {
     };
 
     const handleNewNotification = (notif) => {
-      const relevant = notif.role === "all" || notif.role === session?.role;
+      // Personal notifications (targeted at a specific userId, e.g. "your slot was
+      // booked/cancelled/rescheduled") never carry a `role` — that's intentional,
+      // since they're scoped by userId server-side, not by role. Only reject a
+      // notification when it explicitly has a role that doesn't match this user.
+      const relevant = !notif.role || notif.role === "all" || notif.role === session?.role;
       if (!relevant) return;
       setNotifications(prev => prev.some(n => n.id === notif.id) ? prev : [notif, ...prev]);
     };

@@ -78,6 +78,7 @@ router.post('/slots', auth, requireAdmin, async (req, res) => {
     });
 
     if (assignedTo) {
+    
       const intern = await User.findById(assignedTo).select('name email');
       if (intern) {
         const internNotif = await Notification.create({
@@ -100,6 +101,43 @@ router.post('/slots', auth, requireAdmin, async (req, res) => {
             link: meeting.meetLink,
           }).catch(() => {});
         }
+      }
+    } else {
+
+      const internQuery = { role: 'intern', status: 'active' };
+      if (scope === 'batch') {
+        internQuery.domain = domain || '';
+        internQuery.batch  = batch  || '';
+      }
+      const matchingInterns = await User.find(internQuery).select('name email');
+
+      if (matchingInterns.length) {
+        const notifDocs = await Notification.insertMany(
+          matchingInterns.map(i => ({
+            userId: i._id,
+            type: 'system',
+            meeting: meeting._id,
+            text: `📅 A new meeting slot is available: "${meeting.title}" on ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}. Book it from the Meetings page.`,
+          }))
+        );
+
+        matchingInterns.forEach((intern, idx) => {
+          const n = notifDocs[idx];
+          socketManager.emitToUser(intern._id, 'notification:new', {
+            id: n._id, type: n.type, text: n.text, read: false,
+            time: new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+          });
+
+          if (intern.email) {
+            sendMeetingEmail({
+              to: intern.email,
+              subject: `New Meeting Slot: ${meeting.title}`,
+              title: meeting.title,
+              time: meeting.scheduledAt,
+              link: meeting.meetLink,
+            }).catch(() => {});
+          }
+        });
       }
     }
 
