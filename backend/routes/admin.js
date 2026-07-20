@@ -276,7 +276,7 @@ router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
 
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
-
+    
     await Submission.deleteMany({ intern: user._id });
     await TaskCertificate.deleteMany({ student: user._id });
     await Certificate.deleteMany({ student: user._id });
@@ -328,7 +328,6 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
         { 'meta.certificateId': { $exists: true, $ne: null, $nin: remainingValidCertIds } },
       ],
     });
-
     const issuedCertIds = (await Certificate.find({ emailSent: true }).distinct('certificateId'));
     const staleResolvedNotifs = issuedCertIds.length
       ? await Notification.deleteMany({
@@ -354,6 +353,16 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
       ? await Notification.deleteMany({ _id: { $in: duplicateIds } })
       : { deletedCount: 0 };
 
+    const issuedCertsRaw = await Certificate.find({ emailSent: true }).populate('student', 'name email status');
+    const inconsistentCertificates = issuedCertsRaw
+      .filter(c => c.student && c.student.status !== 'completed')
+      .map(c => ({
+        certificateId: c.certificateId,
+        internName: c.student.name,
+        internEmail: c.student.email,
+        internStatus: c.student.status,
+      }));
+
     res.json({
       success: true,
       deleted: {
@@ -362,6 +371,7 @@ router.post('/maintenance/cleanup-orphaned-data', auth, requireAdmin, async (req
         certificates: orphanedCerts.deletedCount,
         notifications: orphanedNotifications.deletedCount + staleResolvedNotifs.deletedCount + dedupedNotifs.deletedCount,
       },
+      inconsistentCertificates,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

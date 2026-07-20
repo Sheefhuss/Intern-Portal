@@ -48,12 +48,18 @@ export default function AdminPanelPage() {
     try {
       const result = await AuthService.apiFetch("/admin/maintenance/cleanup-orphaned-data", { method: "POST" });
       const d = result.deleted || {};
+      const warnings = result.inconsistentCertificates || [];
+      const warningText = warnings.length
+        ? `\n\n⚠️ ${warnings.length} certificate(s) were emailed to interns not currently marked Completed — nothing was deleted, review these manually:\n` +
+          warnings.map(w => `• ${w.internName} (${w.internEmail}) — status: ${w.internStatus} — ${w.certificateId}`).join("\n")
+        : "";
       alert(
         `Cleaned up:\n` +
         `${d.notifications || 0} notifications\n` +
         `${d.submissions || 0} submissions\n` +
         `${d.taskCertificates || 0} task certificates\n` +
-        `${d.certificates || 0} internship certificates`
+        `${d.certificates || 0} internship certificates` +
+        warningText
       );
     } catch (err) {
       alert(err.message || "Cleanup failed.");
