@@ -2,7 +2,7 @@ import { S, COLORS } from "../../utils/theme";
 import { btnGhost, fmt } from "./constants";
 import StatusBadge from "./StatusBadge";
 
-export default function MeetingCard({ m, isAdmin, acting, onDelete }) {
+export default function MeetingCard({ m, isAdmin, acting, onDelete, onReschedule }) {
   return (
     <div style={{ ...S.card, padding: 20, borderLeft: `4px solid ${COLORS.purple}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
@@ -27,10 +27,16 @@ export default function MeetingCard({ m, isAdmin, acting, onDelete }) {
           )}
         </div>
         {isAdmin && (
-          <button onClick={() => onDelete(m._id)} disabled={acting === m._id}
-            style={{ ...btnGhost, color: "#EF4444", borderColor: "#FCA5A5", fontSize: 12 }}>
-            {acting === m._id ? "…" : "Delete"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => onReschedule(m)} disabled={acting === m._id}
+              style={{ ...btnGhost, color: COLORS.purple, borderColor: "#DDD6FE", fontSize: 12 }}>
+              Reschedule
+            </button>
+            <button onClick={() => onDelete(m._id)} disabled={acting === m._id}
+              style={{ ...btnGhost, color: "#EF4444", borderColor: "#FCA5A5", fontSize: 12 }}>
+              {acting === m._id ? "…" : "Delete"}
+            </button>
+          </div>
         )}
       </div>
     </div>

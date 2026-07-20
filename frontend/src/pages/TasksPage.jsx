@@ -8,6 +8,7 @@ import TaskCard from "./tasks/TaskCard";
 import TrackingModal from "./tasks/TrackingModal";
 import SubmitModal from "./tasks/SubmitModal";
 import MyTaskCertificates from "./tasks/MyTaskCertificates";
+import MyCertificate from "./tasks/MyCertificate";
 
 export default function TasksPage({ session, socket }) {
   const role      = session?.role?.toLowerCase();
@@ -319,6 +320,7 @@ export default function TasksPage({ session, socket }) {
         />
       )}
 
+      {!isManager && <MyCertificate />}
       {!isManager && <MyTaskCertificates />}
 
       {loading ? (

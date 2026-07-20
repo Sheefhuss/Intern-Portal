@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AuthService } from "../../auth/authService";
+import { AuthService, API } from "../../auth/authService";
 import { COLORS, S } from "../../utils/theme";
 
 export default function MyTaskCertificates() {
@@ -11,10 +11,12 @@ export default function MyTaskCertificates() {
 
   const load = async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await AuthService.apiFetch("/task-certificates/my");
       setCertificates(data);
-    } catch {
+    } catch (err) {
+      setError(err.message || "Couldn't load your task certificates. Try refreshing.");
     } finally {
       setLoading(false);
     }
@@ -38,7 +40,8 @@ export default function MyTaskCertificates() {
     }
   };
 
-  if (loading || certificates.length === 0) return null;
+  if (loading) return null;
+  if (!error && certificates.length === 0) return null;
 
   return (
     <div style={S.card}>
@@ -65,6 +68,18 @@ export default function MyTaskCertificates() {
                   {cert.certificateId}
                 </div>
               </div>
+
+              <a
+                href={`${API}/task-certificates/${cert.certificateId}/view`}
+                target="_blank" rel="noreferrer"
+                style={{
+                  padding: "6px 12px", background: "#F3F4F6", color: "#374151",
+                  border: "1px solid #E5E7EB", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                  textDecoration: "none", fontFamily: "inherit",
+                }}
+              >
+                👁 View
+              </a>
 
               <button
                 onClick={() => requestResend(cert)}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AuthService } from "../../auth/authService";
+import { AuthService, API } from "../../auth/authService";
 import { COLORS, S } from "../../utils/theme";
 import { domainColor } from "../../utils/adminConstants";
 
@@ -263,9 +263,22 @@ export default function CertificateIssuePanel() {
                     </button>
                   </>
                 ) : (
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: "#16A34A" }}>
-                    ✓ Emailed
-                  </span>
+                  <>
+                    <a
+                      href={`${API}/certificates/${cert.certificateId}/view`}
+                      target="_blank" rel="noreferrer"
+                      style={{
+                        padding: "6px 12px", background: "#F3F4F6", color: "#374151",
+                        border: "1px solid #E5E7EB", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                        textDecoration: "none", fontFamily: "inherit",
+                      }}
+                    >
+                      👁 View
+                    </a>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: "#16A34A" }}>
+                      ✓ Emailed
+                    </span>
+                  </>
                 )}
 
                 {isJustIssued && (

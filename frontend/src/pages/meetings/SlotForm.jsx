@@ -1,7 +1,7 @@
 import { S } from "../../utils/theme";
 import { inputStyle, labelStyle, btnPrimary, btnGhost } from "./constants";
 
-export default function SlotForm({ slotForm, setSlotForm, posting, onSubmit, onCancel, interns }) {
+export default function SlotForm({ slotForm, setSlotForm, posting, onSubmit, onCancel, interns, options }) {
   return (
     <div style={{ ...S.card, padding: 24 }}>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: "#111827" }}>Create Meeting Slot</div>
@@ -40,12 +40,20 @@ export default function SlotForm({ slotForm, setSlotForm, posting, onSubmit, onC
             <div>
               <label style={labelStyle}>Domain *</label>
               <input style={inputStyle} placeholder="e.g. Engineering" value={slotForm.domain}
+                list="domain-options"
                 onChange={e => setSlotForm({ ...slotForm, domain: e.target.value })} />
+              <datalist id="domain-options">
+                {(options?.domains || []).map(d => <option key={d} value={d} />)}
+              </datalist>
             </div>
             <div>
               <label style={labelStyle}>Batch *</label>
               <input style={inputStyle} placeholder="e.g. Batch A" value={slotForm.batch}
+                list="batch-options"
                 onChange={e => setSlotForm({ ...slotForm, batch: e.target.value })} />
+              <datalist id="batch-options">
+                {(options?.batches || []).map(b => <option key={b} value={b} />)}
+              </datalist>
             </div>
           </>
         )}

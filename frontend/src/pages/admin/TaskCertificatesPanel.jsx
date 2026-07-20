@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AuthService } from "../../auth/authService";
+import { AuthService, API } from "../../auth/authService";
 import { COLORS, S } from "../../utils/theme";
 
 export default function TaskCertificatesPanel() {
@@ -100,6 +100,18 @@ export default function TaskCertificatesPanel() {
                 }}>
                   {cert.emailSent ? "✓ Emailed" : "⏳ Not yet emailed"}
                 </span>
+
+                <a
+                  href={`${API}/task-certificates/${cert.certificateId}/view`}
+                  target="_blank" rel="noreferrer"
+                  style={{
+                    padding: "7px 14px", background: "#fff", color: "#374151",
+                    border: "1px solid #E5E7EB", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                    textDecoration: "none", fontFamily: "inherit",
+                  }}
+                >
+                  👁 View
+                </a>
 
                 <button
                   onClick={() => resend(cert)}

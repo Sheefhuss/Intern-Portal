@@ -9,6 +9,8 @@ import { InternSlotCard, BookedCard, MyRequestCard } from "./meetings/InternCard
 import SlotForm from "./meetings/SlotForm";
 import RequestForm from "./meetings/RequestForm";
 import ApproveModal from "./meetings/ApproveModal";
+import RescheduleModal from "./meetings/RescheduleModal";
+import HistoryCard from "./meetings/HistoryCard";
 
 export default function MeetingsPage({ session, socket }) {
   const role    = session?.role?.toLowerCase();
@@ -28,6 +30,12 @@ export default function MeetingsPage({ session, socket }) {
   const [approveTarget, setApproveTarget] = useState(null);
   const [approveForm, setApproveForm]   = useState({ approvalLink: "", scheduledAt: "" });
   const [interns, setInterns]           = useState([]);
+  const [options, setOptions]           = useState({ domains: [], batches: [] });
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [rescheduleForm, setRescheduleForm]     = useState({ scheduledAt: "", meetLink: "" });
+  const [history, setHistory]           = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded]   = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -41,6 +49,8 @@ export default function MeetingsPage({ session, socket }) {
     if (isAdmin) {
       AuthService.apiFetch("/admin/users?role=intern&status=active")
         .then(setInterns).catch(() => setInterns([]));
+      AuthService.apiFetch("/meetings/options")
+        .then(setOptions).catch(() => setOptions({ domains: [], batches: [] }));
     }
   }, [isAdmin]);
 
@@ -50,6 +60,16 @@ export default function MeetingsPage({ session, socket }) {
     socket.on("meetings:changed", refresh);
     return () => socket.off("meetings:changed", refresh);
   }, [socket]);
+
+  useEffect(() => {
+    if (tab === "history" && (isAdmin || isHR) && !historyLoaded) {
+      setHistoryLoading(true);
+      AuthService.apiFetch("/meetings/history")
+        .then(data => { setHistory(data); setHistoryLoaded(true); })
+        .catch(() => setHistory([]))
+        .finally(() => setHistoryLoading(false));
+    }
+  }, [tab, isAdmin, isHR, historyLoaded]);
 
   const slots          = meetings.filter(m => m.type === "slot");
   const requests       = meetings.filter(m => m.type === "request");
@@ -149,18 +169,48 @@ export default function MeetingsPage({ session, socket }) {
     try {
       await AuthService.apiFetch(`/meetings/${meetingId}`, { method: "DELETE" });
       setMeetings(meetings.filter(m => m._id !== meetingId));
+      setHistoryLoaded(false); // deleted meetings move into history — force a refetch next time it's opened
+    } catch (err) { alert(err.message); }
+    finally { setActing(null); }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleForm.scheduledAt) return alert("New date and time are required.");
+    setActing(rescheduleTarget._id);
+    try {
+      const updated = await AuthService.apiFetch(`/meetings/${rescheduleTarget._id}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          scheduledAt: toISOFromLocal(rescheduleForm.scheduledAt),
+          meetLink: rescheduleForm.meetLink || undefined,
+        }),
+      });
+      setMeetings(meetings.map(m => m._id === rescheduleTarget._id ? { ...m, ...updated } : m));
+      setRescheduleTarget(null);
+      setRescheduleForm({ scheduledAt: "", meetLink: "" });
+    } catch (err) { alert(err.message); }
+    finally { setActing(null); }
+  };
+
+  const handlePermanentDelete = async (meetingId) => {
+    if (!window.confirm("Permanently delete this meeting? This cannot be undone.")) return;
+    setActing(meetingId);
+    try {
+      await AuthService.apiFetch(`/meetings/${meetingId}/permanent`, { method: "DELETE" });
+      setHistory(history.filter(m => m._id !== meetingId));
     } catch (err) { alert(err.message); }
     finally { setActing(null); }
   };
 
 
   const tabs = isAdmin || isHR
-    ? ["slots", "requests"]
+    ? ["slots", "requests", "history"]
     : ["available", "my-booking", "my-requests"];
 
   const tabLabels = {
     slots:         `Slots (${slots.length})`,
     requests:      `Requests (${requests.length})`,
+    history:       "History",
     available:     `Available (${availableSlots.length})`,
     "my-booking":  "My Booking",
     "my-requests": `My Requests (${myRequests.length})`,
@@ -198,7 +248,7 @@ export default function MeetingsPage({ session, socket }) {
       {isAdmin && showSlotForm && (
         <SlotForm
           slotForm={slotForm} setSlotForm={setSlotForm}
-          posting={posting} interns={interns}
+          posting={posting} interns={interns} options={options}
           onSubmit={handleCreateSlot}
           onCancel={() => { setSlotForm(emptySlotForm); setShowSlotForm(false); }}
         />
@@ -237,7 +287,9 @@ export default function MeetingsPage({ session, socket }) {
                   {isAdmin ? "No slots yet. Create one above." : "No slots created yet."}
                 </div>
               : slots.map(m => (
-                  <MeetingCard key={m._id} m={m} isAdmin={isAdmin} acting={acting} onDelete={handleDelete} />
+                  <MeetingCard key={m._id} m={m} isAdmin={isAdmin} acting={acting}
+                    onDelete={handleDelete}
+                    onReschedule={(meeting) => { setRescheduleTarget(meeting); setRescheduleForm({ scheduledAt: "", meetLink: "" }); }} />
                 ))
           )}
 
@@ -248,6 +300,16 @@ export default function MeetingsPage({ session, socket }) {
                   <RequestCard key={m._id} m={m} isAdmin={isAdmin} acting={acting}
                     onApprove={() => { setApproveTarget(m); setApproveForm({ approvalLink: "", scheduledAt: "" }); }}
                     onReject={handleReject} onDelete={handleDelete} />
+                ))
+          )}
+
+          {(isAdmin || isHR) && tab === "history" && (
+            historyLoading
+              ? <div style={{ textAlign: "center", padding: 48, color: "#9CA3AF" }}>Loading history…</div>
+              : history.length === 0
+              ? <div style={{ ...S.card, textAlign: "center", padding: 48, color: "#9CA3AF" }}>No deleted meetings yet.</div>
+              : history.map(m => (
+                  <HistoryCard key={m._id} m={m} isAdmin={isAdmin} acting={acting} onPermanentDelete={handlePermanentDelete} />
                 ))
           )}
 
@@ -281,6 +343,13 @@ export default function MeetingsPage({ session, socket }) {
         target={approveTarget} form={approveForm} setForm={setApproveForm}
         acting={acting} onApprove={handleApprove}
         onClose={() => setApproveTarget(null)}
+      />
+
+      {/* Reschedule Modal */}
+      <RescheduleModal
+        target={rescheduleTarget} form={rescheduleForm} setForm={setRescheduleForm}
+        acting={acting} onReschedule={handleReschedule}
+        onClose={() => setRescheduleTarget(null)}
       />
     </div>
   );
