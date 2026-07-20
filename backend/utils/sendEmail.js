@@ -132,7 +132,7 @@ async function sendTaskCertificateEmail({ to, internName, taskTitle, domain, bat
   });
 }
 
-async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) {
+async function sendMeetingEmail({ to, subject, title, time, link, isReminder, isReschedule }) {
   const formattedTime = time
     ? new Date(time).toLocaleString('en-IN', {
         dateStyle: 'medium', timeStyle: 'short',
@@ -140,16 +140,23 @@ async function sendMeetingEmail({ to, subject, title, time, link, isReminder }) 
       })
     : '';
 
+  const eyebrow = isReminder ? 'Meeting Reminder' : isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmed';
+  const heading = isReminder
+    ? `⏰ "${title}" starts soon`
+    : isReschedule
+      ? `🔄 "${title}" was rescheduled`
+      : `✅ "${title}" is scheduled`;
+
   const html = `
       <div style="font-family:'Inter',system-ui,sans-serif;background:#ede9f8;padding:40px 20px;">
         <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(124,58,237,0.15);">
           <div style="height:8px;background:linear-gradient(90deg,#9333EA,#7C3AED,#6D28D9);"></div>
           <div style="padding:36px 40px;">
             <p style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#9CA3AF;margin:0 0 8px;">
-              ${isReminder ? 'Meeting Reminder' : 'Meeting Approved'}
+              ${eyebrow}
             </p>
             <h1 style="font-size:22px;color:#1F1235;margin:0 0 18px;font-family:Georgia,serif;">
-              ${isReminder ? `⏰ "${title}" starts soon` : `✅ "${title}" was approved`}
+              ${heading}
             </h1>
             ${formattedTime ? `
             <p style="font-size:14px;color:#374151;line-height:1.7;margin:0 0 24px;">

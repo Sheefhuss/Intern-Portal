@@ -323,24 +323,29 @@ router.patch('/:id/reschedule', auth, requireAdmin, async (req, res) => {
     const meeting = await Meeting.findById(req.params.id);
     if (!meeting) return res.status(404).json({ error: 'Meeting record not found.' });
 
-    const previouslyBookedBy = meeting.bookedBy;
+    const previouslyBookedBy = meeting.bookedBy || (meeting.type === 'request' ? meeting.createdBy : null);
 
     meeting.scheduledAt = new Date(scheduledAt);
     if (meetLink) meeting.meetLink = meetLink.trim();
 
-    meeting.status = meeting.type === 'request' ? 'pending' : 'open';
-    if (meeting.type === 'slot') meeting.bookedBy = null; // don't leave a stale booking on a re-opened slot
+    if (meeting.type === 'slot') {
+      meeting.status   = 'open';
+      meeting.bookedBy = null; // don't leave a stale booking on a re-opened slot
+    }
+    // request-type meetings keep their 'approved' status — rescheduling doesn't unapprove them
     meeting.isDeleted = false;
     meeting.reminderSent = false;
 
     await meeting.save();
 
-    if (meeting.type === 'slot' && previouslyBookedBy) {
+    if (previouslyBookedBy) {
       const rescheduleNotif = await Notification.create({
         userId: previouslyBookedBy,
         type: 'system',
         meeting: meeting._id,
-        text: `🔄 Your meeting "${meeting.title}" was rescheduled to ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}. Please rebook if you still need it.`,
+        text: meeting.type === 'slot'
+          ? `🔄 Your meeting "${meeting.title}" was rescheduled to ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}. Please rebook if you still need it.`
+          : `🔄 Your meeting "${meeting.title}" was rescheduled to ${new Date(meeting.scheduledAt).toLocaleString('en-IN')}.`,
       });
       socketManager.emitToUser(previouslyBookedBy, 'notification:new', {
         id: rescheduleNotif._id, type: rescheduleNotif.type, text: rescheduleNotif.text, read: false,
@@ -356,6 +361,7 @@ router.patch('/:id/reschedule', auth, requireAdmin, async (req, res) => {
           time: meeting.scheduledAt,
           link: meeting.meetLink,
           isReminder: false,
+          isReschedule: true,
         }).catch(() => {});
       }
     }
